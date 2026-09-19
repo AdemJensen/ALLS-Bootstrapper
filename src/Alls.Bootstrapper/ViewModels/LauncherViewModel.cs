@@ -424,13 +424,11 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                     : UpdateAllSection.Games;
                 RaiseUpdateAllSelectionChanged();
                 break;
-            case CabinetInputAction.Up when updateAllSection == UpdateAllSection.Games && UpdateAllEntries.Count > 0:
-                selectedUpdateGameIndex = (selectedUpdateGameIndex - 1 + UpdateAllEntries.Count) % UpdateAllEntries.Count;
-                RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+            case CabinetInputAction.Up when UpdateAllEntries.Count > 0:
+                MoveUpdateAllSelection(-1);
                 break;
-            case CabinetInputAction.Down when updateAllSection == UpdateAllSection.Games && UpdateAllEntries.Count > 0:
-                selectedUpdateGameIndex = (selectedUpdateGameIndex + 1) % UpdateAllEntries.Count;
-                RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+            case CabinetInputAction.Down when UpdateAllEntries.Count > 0:
+                MoveUpdateAllSelection(1);
                 break;
             case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Games:
                 ShowUpdateDetails();
@@ -439,6 +437,33 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             case CabinetInputAction.Select when !updateAllRunning:
                 ShowMenu();
                 break;
+        }
+    }
+
+    private void MoveUpdateAllSelection(int direction)
+    {
+        if (updateAllSection == UpdateAllSection.Return)
+        {
+            selectedUpdateGameIndex = direction < 0 ? UpdateAllEntries.Count - 1 : 0;
+            updateAllSection = UpdateAllSection.Games;
+            RaiseUpdateAllSelectionChanged();
+            return;
+        }
+
+        if (direction < 0 && selectedUpdateGameIndex > 0)
+        {
+            selectedUpdateGameIndex--;
+            RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+        }
+        else if (direction > 0 && selectedUpdateGameIndex < UpdateAllEntries.Count - 1)
+        {
+            selectedUpdateGameIndex++;
+            RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+        }
+        else
+        {
+            updateAllSection = UpdateAllSection.Return;
+            RaiseUpdateAllSelectionChanged();
         }
     }
 

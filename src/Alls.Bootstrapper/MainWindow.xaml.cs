@@ -191,6 +191,14 @@ public partial class MainWindow : Window
             BootMessageText.FontSize = 43;
             BootLoadingIndicator.Width = 46;
             BootLoadingIndicator.Height = 46;
+            ErrorLogo.Width = 560;
+            ErrorLogo.Height = 393;
+            ErrorLogo.Margin = new Thickness(0, 35, 0, 0);
+            ErrorStatusStack.Width = 960;
+            ErrorStatusStack.Margin = new Thickness(0, 500, 0, 0);
+            ErrorPlatformText.FontSize = 31;
+            ErrorTitleText.FontSize = 52;
+            ErrorMessageText.FontSize = 29;
             return;
         }
 
@@ -204,6 +212,14 @@ public partial class MainWindow : Window
         BootMessageText.FontSize = 25;
         BootLoadingIndicator.Width = 46;
         BootLoadingIndicator.Height = 46;
+        ErrorLogo.Width = 430;
+        ErrorLogo.Height = 300;
+        ErrorLogo.Margin = new Thickness(0, 68, 0, 0);
+        ErrorStatusStack.Width = 900;
+        ErrorStatusStack.Margin = new Thickness(0, 376, 0, 0);
+        ErrorPlatformText.FontSize = 25;
+        ErrorTitleText.FontSize = 45;
+        ErrorMessageText.FontSize = 23;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
@@ -329,9 +345,10 @@ public partial class MainWindow : Window
         var showMenuGuide = viewModel.IsMenuVisible;
         var showConfirmationGuide = viewModel.IsConfirmationVisible;
         var showUpdateGuide = viewModel.IsUpdateAllVisible;
+        var showErrorGuide = viewModel.IsErrorVisible;
         if (layoutMode != DisplayLayoutMode.MaimaiDx
             || !isPortrait
-            || (!showMenuGuide && !showConfirmationGuide && !showUpdateGuide))
+            || (!showMenuGuide && !showConfirmationGuide && !showUpdateGuide && !showErrorGuide))
         {
             MaimaiButtonGuide.Visibility = Visibility.Collapsed;
             return;
@@ -354,9 +371,11 @@ public partial class MainWindow : Window
             (MaimaiGuideButton7, 7)
         };
 
+        MaimaiGuideButton1.Visibility = showErrorGuide ? Visibility.Collapsed : Visibility.Visible;
         MaimaiGuideButton2.Visibility = showMenuGuide || showUpdateGuide
             ? Visibility.Visible
             : Visibility.Collapsed;
+        MaimaiGuideButton4.Visibility = showErrorGuide ? Visibility.Collapsed : Visibility.Visible;
         MaimaiGuideButton7.Visibility = showMenuGuide || showUpdateGuide
             ? Visibility.Visible
             : Visibility.Collapsed;

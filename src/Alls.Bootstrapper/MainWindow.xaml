@@ -421,25 +421,51 @@
             </Grid>
 
             <Grid Visibility="{Binding IsErrorVisible, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel Width="900" VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding ErrorTitle}"
+                <Image x:Name="ErrorLogo"
+                       Width="430"
+                       Height="300"
+                       Margin="0,68,0,0"
+                       VerticalAlignment="Top"
+                       HorizontalAlignment="Center"
+                       Source="{Binding LogoPath}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       IsHitTestVisible="False" />
+
+                <StackPanel x:Name="ErrorStatusStack"
+                            Width="900"
+                            Margin="0,376,0,0"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Center">
+                    <TextBlock x:Name="ErrorPlatformText"
+                               Text="{Binding PlatformName}"
                                FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
-                               FontSize="48"
+                               FontSize="25"
                                FontWeight="Bold"
-                               Foreground="{StaticResource ErrorBrush}"
+                               Foreground="{StaticResource PrimaryTextBrush}"
                                TextAlignment="Center" />
-                    <TextBlock Margin="0,22,0,0"
+                    <TextBlock x:Name="ErrorTitleText"
+                               Margin="0,6,0,0"
+                               Text="{Binding ErrorTitle}"
+                               FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                               FontSize="45"
+                               FontWeight="Bold"
+                               Foreground="#FFD1B323"
+                               TextAlignment="Center" />
+                    <TextBlock x:Name="ErrorMessageText"
+                               Margin="0,10,0,0"
                                Text="{Binding ErrorMessage}"
                                FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
-                               FontSize="27"
-                               Foreground="{StaticResource PrimaryTextBrush}"
+                               FontSize="23"
+                               FontWeight="SemiBold"
+                               Foreground="#FFC5A91F"
                                TextWrapping="Wrap"
                                TextAlignment="Center" />
-                    <TextBlock Margin="0,48,0,0"
+                    <TextBlock Margin="0,10,0,0"
                                Text="{DynamicResource ERROR_MENU_HELP}"
                                FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
-                               FontSize="20"
-                               Foreground="#FF555555"
+                               FontSize="18"
+                               Foreground="#FF8D7A20"
                                TextAlignment="Center" />
                 </StackPanel>
             </Grid>
@@ -474,7 +500,7 @@
             <Grid x:Name="MaimaiGuideButton5" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
                       Data="M 18,12 C 65,0 135,0 182,12 Q 196,15 191,28 L 177,52 Q 175,58 167,59 C 122,45 78,45 33,59 Q 25,58 23,52 L 9,28 Q 4,15 18,12 Z">
-                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF49D889" Offset="0" /><GradientStop Color="#FF08A653" Offset="0.45" /><GradientStop Color="#FF006B37" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_5}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
