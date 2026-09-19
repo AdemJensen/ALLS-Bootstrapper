@@ -63,6 +63,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private bool bootSequenceActive;
     private bool started;
     private int sessionGeneration;
+    private DisplayLayoutMode activeLayoutMode;
 
     public LauncherViewModel(
         LauncherSettings settings,
@@ -80,6 +81,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         this.monitor = monitor;
         this.input = input;
         this.log = log;
+        activeLayoutMode = settings.Display.LayoutMode;
 
         PlatformName = settings.PlatformName;
         LogoPath = ResolveAssetPath(settings.LogoPath);
@@ -110,6 +112,12 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     public bool IsMenuVisible => Screen == LauncherScreen.Menu;
 
     public bool IsErrorVisible => Screen == LauncherScreen.Error;
+
+    public DisplayLayoutMode ActiveLayoutMode
+    {
+        get => activeLayoutMode;
+        private set => SetProperty(ref activeLayoutMode, value);
+    }
 
     public LauncherScreen Screen
     {
@@ -283,6 +291,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private async Task RunGameAsync(GameSettings game)
     {
         var generation = BeginSession(out var token);
+        ActiveLayoutMode = game.LayoutMode ?? settings.Display.LayoutMode;
         input.Resume();
         WindowVisibilityRequested?.Invoke(this, new WindowVisibilityEventArgs(true));
         Screen = LauncherScreen.Boot;
@@ -404,6 +413,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     private void ShowMenuCore()
     {
+        ActiveLayoutMode = settings.Display.LayoutMode;
         input.Resume();
         bootSequenceActive = false;
         IsBusy = false;

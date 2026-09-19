@@ -5,7 +5,7 @@
   "loadingPath": "Assets/logomode_load.gif",
   "display": {
     "mode": "Fullscreen",
-    "layoutMode": "Auto",
+    "layoutMode": "MaimaiDx",
     "width": 1280,
     "height": 720,
     "topmost": true,
@@ -131,6 +131,7 @@
       "id": "maimai-dx",
       "title": "maimai DX",
       "description": "启动 maimai DX 游戏程序",
+      "layoutMode": "MaimaiDx",
       "launch": {
         "enabled": true,
         "file": null,

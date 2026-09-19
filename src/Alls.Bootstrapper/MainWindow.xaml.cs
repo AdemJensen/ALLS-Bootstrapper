@@ -89,19 +89,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        var useCabinetLayout = display.LayoutMode == DisplayLayoutMode.Cabinet
-            || (display.LayoutMode == DisplayLayoutMode.Auto && height > width);
-        if (!useCabinetLayout)
+        var isPortrait = height > width;
+        var layoutMode = ResolveLayoutMode(viewModel.ActiveLayoutMode, isPortrait);
+        ApplyBootVisualMetrics(layoutMode, isPortrait);
+
+        if (layoutMode == DisplayLayoutMode.Chunithm)
         {
-            DesignViewport.Width = double.NaN;
-            DesignViewport.Height = double.NaN;
-            DesignViewport.Margin = new Thickness(0);
-            DesignViewport.HorizontalAlignment = HorizontalAlignment.Stretch;
-            DesignViewport.VerticalAlignment = VerticalAlignment.Stretch;
+            UseFullWindowLayout();
             return;
         }
 
-        if (height > width)
+        if (layoutMode is DisplayLayoutMode.Ongeki or DisplayLayoutMode.CardMaker)
+        {
+            if (!isPortrait)
+            {
+                UseFullWindowLayout();
+                return;
+            }
+
+            var contentWidth = Math.Min(width, height * 1280.0 / 720.0);
+            var contentHeight = contentWidth * 720.0 / 1280.0;
+            DesignViewport.Width = contentWidth;
+            DesignViewport.Height = contentHeight;
+            DesignViewport.Margin = new Thickness(0, (height - contentHeight) / 2, 0, 0);
+            DesignViewport.HorizontalAlignment = HorizontalAlignment.Center;
+            DesignViewport.VerticalAlignment = VerticalAlignment.Top;
+            return;
+        }
+
+        if (isPortrait)
         {
             var stageSize = Math.Min(width, height * 0.75);
             var contentHeight = stageSize * 720.0 / 1280.0;
@@ -127,6 +143,64 @@ public partial class MainWindow : Window
             0);
         DesignViewport.HorizontalAlignment = HorizontalAlignment.Left;
         DesignViewport.VerticalAlignment = VerticalAlignment.Top;
+    }
+
+    private static DisplayLayoutMode ResolveLayoutMode(DisplayLayoutMode configuredMode, bool isPortrait)
+    {
+        return configuredMode switch
+        {
+            DisplayLayoutMode.Auto => isPortrait
+                ? DisplayLayoutMode.MaimaiDx
+                : DisplayLayoutMode.Chunithm,
+            DisplayLayoutMode.Landscape => DisplayLayoutMode.Chunithm,
+            DisplayLayoutMode.Cabinet => DisplayLayoutMode.MaimaiDx,
+            _ => configuredMode
+        };
+    }
+
+    private void UseFullWindowLayout()
+    {
+        DesignViewport.Width = double.NaN;
+        DesignViewport.Height = double.NaN;
+        DesignViewport.Margin = new Thickness(0);
+        DesignViewport.HorizontalAlignment = HorizontalAlignment.Stretch;
+        DesignViewport.VerticalAlignment = VerticalAlignment.Stretch;
+    }
+
+    private void ApplyBootVisualMetrics(DisplayLayoutMode layoutMode, bool isPortrait)
+    {
+        var usePortraitMetrics = isPortrait && layoutMode is
+            DisplayLayoutMode.MaimaiDx or
+            DisplayLayoutMode.Ongeki or
+            DisplayLayoutMode.CardMaker;
+
+        if (usePortraitMetrics)
+        {
+            // The portrait stage is still authored on a 1280x720 design surface.
+            // These values compensate for its 1080/1280 scale on a 1080-wide cabinet display.
+            BootLogo.Width = 560;
+            BootLogo.Height = 393;
+            BootLogo.Margin = new Thickness(0, 35, 0, 0);
+            BootStatusStack.Width = 960;
+            BootStatusStack.Margin = new Thickness(0, 500, 0, 0);
+            BootPlatformText.FontSize = 43;
+            BootStepText.FontSize = 43;
+            BootMessageText.FontSize = 43;
+            BootLoadingIndicator.Width = 46;
+            BootLoadingIndicator.Height = 46;
+            return;
+        }
+
+        BootLogo.Width = 430;
+        BootLogo.Height = 300;
+        BootLogo.Margin = new Thickness(0, 68, 0, 0);
+        BootStatusStack.Width = 840;
+        BootStatusStack.Margin = new Thickness(0, 374, 0, 0);
+        BootPlatformText.FontSize = 34;
+        BootStepText.FontSize = 26;
+        BootMessageText.FontSize = 25;
+        BootLoadingIndicator.Width = 46;
+        BootLoadingIndicator.Height = 46;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
@@ -168,6 +242,12 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(LauncherViewModel.ActiveLayoutMode))
+        {
+            ApplyDisplayLayout();
+            return;
+        }
+
         if (e.PropertyName == nameof(LauncherViewModel.SelectedIndex)
             && viewModel.SelectedIndex >= 0
             && viewModel.SelectedIndex < viewModel.MenuEntries.Count)

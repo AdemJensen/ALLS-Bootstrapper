@@ -17,7 +17,7 @@ SEGA IO4/ADX HID/NPro DX/Maimoller IO 机台输入、独立的启动脚本与游
 - 每个游戏可单独配置启动脚本、参数、工作目录、STEP 时间线、等待进程和等待窗口。
 - 启动脚本完成后继续等待真正的游戏进程/窗口；游戏就绪后隐藏界面并留在后台守护。
 - 指定进程结束或窗口消失后，按配置显示操作界面或错误页。
-- 自动识别横屏和竖屏；竖屏使用 maimai 机台式下部显示区，不再出现横向白色条带。
+- 内置 Chunithm、maimai DX、Ongeki、CardMaker 机台布局预设；每个游戏可单独选择。
 - 支持中文、英文和日文资源，支持窗口预览、日志与键盘调试。
 
 ## 构建
@@ -95,7 +95,7 @@ ALLS.exe --preview --windowed
 ```json
 "display": {
   "mode": "Fullscreen",
-  "layoutMode": "Auto",
+  "layoutMode": "MaimaiDx",
   "width": 1280,
   "height": 720,
   "topmost": true,
@@ -105,17 +105,21 @@ ALLS.exe --preview --windowed
 ```
 
 `mode` 可为 `Fullscreen` 或 `Windowed`。`width`、`height` 只控制窗口模式；全屏模式
-使用当前主屏幕尺寸。`layoutMode` 支持：
+使用当前主屏幕尺寸。`layoutMode` 是操作界面和未指定游戏布局时使用的默认预设：
 
-- `Auto`：宽度大于等于高度时使用普通横屏；高度大于宽度时自动使用机台布局。
-- `Landscape`：始终将 1280×720 设计画布等比放入整个窗口。
-- `Cabinet`：使用 maimai 机台式显示区。竖屏时在底部建立最大正方形区域，并把
-  Logo Mode、操作界面和错误页放在该区域中央；横屏时使用偏右的机台显示区。
+| `layoutMode` | 适用机台 | 布局行为 |
+| --- | --- | --- |
+| `Chunithm` | Chunithm 等横屏机台 | 1280×720 设计画布等比使用整个屏幕 |
+| `MaimaiDx` | maimai DX（SDEZ / SDGB / SDGA） | 在 1080×1920 竖屏底部建立约 1080×1080 的主显示区域，空出顶部副屏位置 |
+| `Ongeki` | Ongeki | 不预留顶部副屏，启动内容在整块竖屏中央显示 |
+| `CardMaker` | Card Maker | 不预留顶部副屏，独立保留为后续微调的预设 |
+| `Auto` | 自动判断 | 横屏使用 `Chunithm`，竖屏使用 `MaimaiDx` |
 
-在 1080×1920 屏幕上，`Auto`/`Cabinet` 会得到底部约 1080×1080 的机台区域，内容
-按照 1280×720 比例放在其中，上方和周围由窗口本身的白色背景填满，因此不会再出现
-黑色背景中的横向白条。`topmost`、`hideCursor`、`allowEscapeToExit` 分别控制置顶、
-隐藏鼠标和允许 `Esc` 退出。
+旧配置中的 `Landscape` 与 `Cabinet` 仍然兼容，分别等同于 `Chunithm` 和
+`MaimaiDx`。竖屏预设会使用放大的 Logo 和状态文字，以补偿 1280×720 设计画布缩放到
+1080 像素宽度时产生的视觉缩小。窗口其余区域仍由白色背景覆盖，因此不会出现黑底中的
+横向白条。`topmost`、`hideCursor`、`allowEscapeToExit` 分别控制置顶、隐藏鼠标和允许
+`Esc` 退出。
 
 ### startup：启动入口
 
@@ -199,6 +203,7 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
     "id": "maimai-dx",
     "title": "maimai DX",
     "description": "启动 maimai DX 游戏程序",
+    "layoutMode": "MaimaiDx",
     "launch": {
       "enabled": true,
       "file": null,
@@ -234,6 +239,7 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 | --- | --- |
 | `id` | 唯一标识，同时供 `startup.defaultGameId` 引用 |
 | `title` / `description` | 操作界面显示的标题与说明 |
+| `layoutMode` | 可选的机型布局预设；省略时继承 `display.layoutMode` |
 | `launch` | 实际执行的启动器、批处理或脚本；它可以与被监控的游戏完全不同 |
 | `monitor` | 真正游戏进程/窗口的就绪与退出判断 |
 | `timeline` | 此游戏独有的时间线；空数组表示使用顶层 `timeline` |
@@ -269,8 +275,28 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 `pollIntervalMs` 是检测间隔。至少配置一个进程或窗口条件，否则游戏会被立即视为就绪，
 而守护程序会一直留在后台直到程序被手动退出。
 
-添加第二个游戏只需在 `games` 数组追加对象，并给它不同的 `id`、`launch` 和
-`monitor`。操作界面会自动按数组顺序列出。
+添加第二个游戏只需在 `games` 数组追加对象，并给它不同的 `id`、`layoutMode`、
+`launch` 和 `monitor`。操作界面会自动按数组顺序列出。例如同一台电脑可以混合配置：
+
+```json
+{
+  "id": "chunithm",
+  "title": "Chunithm",
+  "layoutMode": "Chunithm"
+},
+{
+  "id": "ongeki",
+  "title": "Ongeki",
+  "layoutMode": "Ongeki"
+},
+{
+  "id": "card-maker",
+  "title": "Card Maker",
+  "layoutMode": "CardMaker"
+}
+```
+
+以上是字段重点示例；实际对象仍需包含 `launch`、`monitor` 等配置。
 
 ### timeline：STEP 时间线
 

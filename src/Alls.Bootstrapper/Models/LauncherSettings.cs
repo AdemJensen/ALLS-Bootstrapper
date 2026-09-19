@@ -6,7 +6,16 @@ namespace Alls.Bootstrapper.Models;
 public enum WindowMode { Fullscreen, Windowed }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum DisplayLayoutMode { Auto, Landscape, Cabinet }
+public enum DisplayLayoutMode
+{
+    Auto,
+    Chunithm,
+    MaimaiDx,
+    Ongeki,
+    CardMaker,
+    Landscape,
+    Cabinet
+}
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum StartupMode { DefaultGame, Menu }
@@ -52,7 +61,7 @@ public sealed class LauncherSettings
 public sealed class DisplaySettings
 {
     public WindowMode Mode { get; set; } = WindowMode.Fullscreen;
-    public DisplayLayoutMode LayoutMode { get; set; } = DisplayLayoutMode.Auto;
+    public DisplayLayoutMode LayoutMode { get; set; } = DisplayLayoutMode.MaimaiDx;
     public int Width { get; set; } = 1280;
     public int Height { get; set; } = 720;
     public bool Topmost { get; set; } = true;
@@ -82,6 +91,7 @@ public sealed class GameSettings
     public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DisplayLayoutMode? LayoutMode { get; set; }
     public LaunchSettings Launch { get; set; } = new();
     public ProcessMonitorSettings Monitor { get; set; } = new();
     public List<BootPhase> Timeline { get; set; } = [];
@@ -94,6 +104,7 @@ public sealed class GameSettings
         Id = "maimai-dx",
         Title = "maimai DX",
         Description = "启动 maimai DX 游戏程序",
+        LayoutMode = DisplayLayoutMode.MaimaiDx,
         Monitor = new ProcessMonitorSettings
         {
             ProcessNames = ["Sinmai"],
