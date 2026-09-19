@@ -59,10 +59,41 @@
             <Setter Property="Background" Value="White" />
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
         </Style>
-        <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Style TargetType="ToolTip">
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="#172033" CornerRadius="6" Padding="12,9">
+                            <TextBlock Text="{TemplateBinding Content}" Foreground="White" TextWrapping="Wrap" LineHeight="20" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="{x:Type ui:HelpLabel}">
             <Setter Property="Margin" Value="0,8,12,8" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ui:HelpLabel}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{TemplateBinding Title}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                            <Border Width="18" Height="18" Margin="6,0,0,0" CornerRadius="9"
+                                    Background="#EEF1F6" BorderBrush="#C8D0DE" BorderThickness="1"
+                                    ToolTip="{TemplateBinding HelpText}"
+                                    ToolTipService.InitialShowDelay="180" ToolTipService.ShowDuration="30000">
+                                <TextBlock Text="?" Foreground="#59677C" FontSize="12" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="HintText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
@@ -180,46 +211,48 @@
 
                             <GroupBox Header="基本信息">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <TextBlock Text="平台名称" Style="{StaticResource FieldLabel}"/><TextBox Grid.Column="1" Text="{Binding PlatformName, UpdateSourceTrigger=PropertyChanged}" />
-                                    <TextBlock Grid.Row="1" Text="界面语言" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" Text="{Binding Language, UpdateSourceTrigger=LostFocus}"><ComboBoxItem Content="zh-CN"/><ComboBoxItem Content="en-US"/><ComboBoxItem Content="ja-JP"/></ComboBox>
-                                    <TextBlock Grid.Row="2" Text="Logo 图片" Style="{StaticResource FieldLabel}"/><TextBox x:Name="LogoPathBox" Grid.Row="2" Grid.Column="1" Text="{Binding LogoPath, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="2" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseLogo_Click"/>
-                                    <TextBlock Grid.Row="3" Text="加载动画" Style="{StaticResource FieldLabel}"/><TextBox x:Name="LoadingPathBox" Grid.Row="3" Grid.Column="1" Text="{Binding LoadingPath, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="3" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseLoading_Click"/>
+                                    <ui:HelpLabel Title="平台名称" HelpText="显示在启动画面 Logo 下方的平台或机台名称。"/><TextBox Grid.Column="1" Text="{Binding PlatformName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <ui:HelpLabel Grid.Row="1" Title="界面语言" HelpText="控制菜单、确认页、错误页和默认时间线文案的语言；支持 zh-CN、en-US 和 ja-JP。"/><ComboBox Grid.Row="1" Grid.Column="1" IsEditable="True" Text="{Binding Language, UpdateSourceTrigger=LostFocus}"><ComboBoxItem Content="zh-CN"/><ComboBoxItem Content="en-US"/><ComboBoxItem Content="ja-JP"/></ComboBox>
+                                    <ui:HelpLabel Grid.Row="2" Title="Logo 图片" HelpText="启动画面中央显示的品牌图片。相对路径以启动器程序所在目录为基准。"/><TextBox x:Name="LogoPathBox" Grid.Row="2" Grid.Column="1" Text="{Binding LogoPath, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="2" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseLogo_Click"/>
+                                    <ui:HelpLabel Grid.Row="3" Title="加载动画" HelpText="Logo 下方显示的加载动画，通常使用 GIF 文件。相对路径以启动器程序所在目录为基准。"/><TextBox x:Name="LoadingPathBox" Grid.Row="3" Grid.Column="1" Text="{Binding LoadingPath, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="3" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseLoading_Click"/>
                                 </Grid>
                             </GroupBox>
 
                             <GroupBox Header="显示">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="220"/><ColumnDefinition Width="150"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="220"/><ColumnDefinition Width="185"/><ColumnDefinition Width="250"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <TextBlock Text="窗口模式" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.WindowModes}" SelectedItem="{Binding Display.Mode}"/>
-                                    <TextBlock Grid.Column="2" Text="布局预设" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Column="3" ItemsSource="{x:Static ui:EnumOptions.LayoutModes}" SelectedItem="{Binding Display.LayoutMode}"/>
-                                    <TextBlock Grid.Row="1" Text="窗口宽度" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Display.Width, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="窗口高度" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Display.Height, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Grid.Row="2" Text="STEP 淡入 (ms)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Display.StepTransitionMs, UpdateSourceTrigger=LostFocus}"/>
+                                    <ui:HelpLabel Title="窗口模式" HelpText="选择全屏覆盖机台屏幕，或以带标题栏的普通窗口运行。"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.WindowModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Display.Mode}"/>
+                                    <ui:HelpLabel Grid.Column="2" Title="布局预设" HelpText="决定内容画布的尺寸、方向和安全区域。通常应选择与实际游戏机种对应的预设。"/><ComboBox Grid.Column="3" ItemsSource="{x:Static ui:EnumOptions.LayoutModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Display.LayoutMode}"/>
+                                    <ui:HelpLabel Grid.Row="1" Title="窗口宽度" HelpText="窗口模式下的客户端宽度；全屏模式会使用主屏幕尺寸，因此忽略此值。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Display.Width, UpdateSourceTrigger=LostFocus}"/>
+                                    <ui:HelpLabel Grid.Row="1" Grid.Column="2" Title="窗口高度" HelpText="窗口模式下的客户端高度；全屏模式会使用主屏幕尺寸，因此忽略此值。"/><TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Display.Height, UpdateSourceTrigger=LostFocus}"/>
+                                    <ui:HelpLabel Grid.Row="2" Title="STEP 淡入 (ms)" HelpText="切换 STEP 编号和消息时的淡入时长，单位为毫秒；设为 0 可完全关闭渐变。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Display.StepTransitionMs, UpdateSourceTrigger=LostFocus}"/>
                                     <WrapPanel Grid.Row="3" Grid.ColumnSpan="4">
-                                        <CheckBox Content="窗口置顶" IsChecked="{Binding Display.Topmost}"/><CheckBox Content="隐藏鼠标" IsChecked="{Binding Display.HideCursor}"/><CheckBox Content="允许 Esc 退出" IsChecked="{Binding Display.AllowEscapeToExit}"/>
+                                        <CheckBox IsChecked="{Binding Display.Topmost}"><ui:HelpLabel Title="窗口置顶" HelpText="让启动器窗口保持在其他普通窗口之上；游戏就绪并取得焦点后启动器仍会隐藏。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                        <CheckBox IsChecked="{Binding Display.HideCursor}"><ui:HelpLabel Title="隐藏鼠标" HelpText="启动器窗口可见时隐藏鼠标指针，适合无需鼠标操作的机台环境。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                        <CheckBox IsChecked="{Binding Display.AllowEscapeToExit}"><ui:HelpLabel Title="允许 Esc 退出" HelpText="允许操作员按 Esc 键关闭启动器；正式机台如需防止误退可关闭。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                     </WrapPanel>
                                 </Grid>
                             </GroupBox>
 
                             <GroupBox Header="启动入口">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <TextBlock Text="启动模式" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.StartupModes}" SelectedItem="{Binding Startup.Mode}"/>
-                                    <TextBlock Grid.Row="1" Text="默认游戏 ID" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="1" Grid.Column="1" x:Name="DefaultGameCombo" ItemsSource="{Binding Games}" DisplayMemberPath="Title" SelectedValuePath="Id" SelectedValue="{Binding Startup.DefaultGameId}" IsEditable="True" />
-                                    <CheckBox Grid.Row="2" Grid.Column="1" Content="启动时允许按 SELECT 进入菜单" IsChecked="{Binding Startup.AllowSelectToOpenMenu}"/>
+                                    <ui:HelpLabel Title="启动模式" HelpText="决定启动器打开后直接启动默认游戏，还是先显示游戏与机台操作菜单。"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.StartupModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Startup.Mode}"/>
+                                    <ui:HelpLabel Grid.Row="1" Title="默认游戏" HelpText="启动模式为“直接启动默认游戏”时使用的游戏；实际保存的是该游戏的唯一 ID。"/><ComboBox Grid.Row="1" Grid.Column="1" x:Name="DefaultGameCombo" ItemsSource="{Binding Games}" DisplayMemberPath="Title" SelectedValuePath="Id" SelectedValue="{Binding Startup.DefaultGameId}" IsEditable="True" />
+                                    <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding Startup.AllowSelectToOpenMenu}"><ui:HelpLabel Title="启动时允许按 SELECT 进入菜单" HelpText="直接启动默认游戏的等待阶段中，允许玩家按 1P 或 2P SELECT 中断并打开操作菜单。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                 </Grid>
                             </GroupBox>
 
                             <GroupBox Header="日志">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <CheckBox Grid.Column="1" Content="写入日志文件" IsChecked="{Binding Logging.Enabled}"/>
-                                    <TextBlock Grid.Row="1" Text="日志路径" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Logging.File, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <CheckBox Grid.Column="1" IsChecked="{Binding Logging.Enabled}"><ui:HelpLabel Title="写入日志文件" HelpText="启用后把启动、监控、更新和错误信息写入指定日志文件。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                    <ui:HelpLabel Grid.Row="1" Title="日志文件" HelpText="启动器运行日志的写入位置。相对路径以启动器程序所在目录为基准。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Logging.File, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
                             </GroupBox>
                         </StackPanel>
@@ -246,66 +279,95 @@
                                         <StackPanel x:Name="GameFields">
                                             <GroupBox Header="身份与菜单">
                                                 <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="195"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                                    <TextBlock Text="唯一 ID" Style="{StaticResource FieldLabel}"/><TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="1" Text="标题" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="2" Text="说明" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="3" Text="单独语言" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Language, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用全局语言"/>
-                                                    <TextBlock Grid.Row="4" Text="布局预设" Style="{StaticResource FieldLabel}"/>
-                                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal"><CheckBox x:Name="GameLayoutOverride" Content="单独指定" Checked="GameLayoutOverride_Changed" Unchecked="GameLayoutOverride_Changed"/><ComboBox x:Name="GameLayoutCombo" Width="200" ItemsSource="{x:Static ui:EnumOptions.LayoutModes}" SelectedItem="{Binding LayoutMode}"/></StackPanel>
+                                                    <ui:HelpLabel Title="唯一 ID" HelpText="游戏的稳定唯一标识，供默认游戏、更新目录和其他配置引用；修改后请同步检查所有引用。"/><TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="1" Title="标题" HelpText="显示在游戏选择菜单中的主标题。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="2" Title="说明" HelpText="显示在游戏选择菜单中的副标题或简短介绍。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="3" Title="单独语言" HelpText="只覆盖该游戏启动和更新时间线的语言；留空时继承全局界面语言。"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Language, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用全局语言"/>
+                                                    <ui:HelpLabel Grid.Row="4" Title="布局预设" HelpText="可为此游戏单独指定画面布局；未启用“单独指定”时继承全局布局预设。"/>
+                                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal"><CheckBox x:Name="GameLayoutOverride" Checked="GameLayoutOverride_Changed" Unchecked="GameLayoutOverride_Changed"><ui:HelpLabel Title="单独指定" HelpText="启用后此游戏使用右侧选择的布局；关闭时继承全局布局预设。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox><ComboBox x:Name="GameLayoutCombo" Width="260" ItemsSource="{x:Static ui:EnumOptions.LayoutModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding LayoutMode}"/></StackPanel>
                                                 </Grid>
                                             </GroupBox>
 
                                             <GroupBox Header="启动命令">
                                                 <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="195"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                                    <CheckBox Grid.Column="1" Content="启用启动命令" IsChecked="{Binding Launch.Enabled}"/>
-                                                    <TextBlock Grid.Row="1" Text="文件" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Launch.File, UpdateSourceTrigger=PropertyChanged}" ToolTip="为空时依次尝试候选文件"/>
-                                                    <TextBlock Grid.Row="2" Text="候选文件" Style="{StaticResource FieldLabel}"/><StackPanel Grid.Row="2" Grid.Column="1"><TextBox AcceptsReturn="True" MinHeight="60" Text="{Binding Launch.Candidates, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="每行一个，也可以用逗号分隔" Style="{StaticResource HintText}"/></StackPanel>
-                                                    <TextBlock Grid.Row="3" Text="参数" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Launch.Arguments, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="4" Text="工作目录" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Launch.WorkingDirectory, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <CheckBox Grid.Row="5" Grid.Column="1" Content="等待启动命令退出" IsChecked="{Binding Launch.WaitForExit}"/>
+                                                    <CheckBox Grid.Column="1" IsChecked="{Binding Launch.Enabled}"><ui:HelpLabel Title="启用启动命令" HelpText="关闭时只预览时间线和监控流程，不实际运行程序或脚本。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                                    <ui:HelpLabel Grid.Row="1" Title="文件" HelpText="优先启动的程序、批处理或脚本。非空时直接使用它，不再查找候选文件。"/><TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Launch.File, UpdateSourceTrigger=PropertyChanged}" ToolTip="为空时依次尝试候选文件"/>
+                                                    <ui:HelpLabel Grid.Row="2" Title="候选文件" HelpText="“文件”为空时按列表顺序查找，使用第一个存在的文件。可每行填写一个，也可用逗号或分号分隔。"/><StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"><TextBox AcceptsReturn="True" MinHeight="60" Text="{Binding Launch.Candidates, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="每行一个，也可以用逗号分隔" Style="{StaticResource HintText}"/></StackPanel>
+                                                    <ui:HelpLabel Grid.Row="3" Title="参数" HelpText="原样传递给启动文件的命令行参数。"/><TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Launch.Arguments, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="4" Title="工作目录" HelpText="启动命令的运行目录，也是相对文件名和候选文件的查找基准。"/><TextBox x:Name="GameWorkingDirectoryBox" Grid.Row="4" Grid.Column="1" Text="{Binding Launch.WorkingDirectory, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="4" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseGameWorkingDirectory_Click"/>
+                                                    <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding Launch.WaitForExit}"><ui:HelpLabel Title="等待启动命令退出" HelpText="启用后等待启动程序本身退出再继续；启动脚本会拉起独立游戏进程时通常应关闭。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                                 </Grid>
                                             </GroupBox>
 
                                             <GroupBox Header="进程与窗口监控">
                                                 <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                                    <TextBlock Text="进程名" Style="{StaticResource FieldLabel}"/><StackPanel Grid.Column="1" Grid.ColumnSpan="3"><TextBox AcceptsReturn="True" MinHeight="58" Text="{Binding Monitor.ProcessNames, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="不包含 .exe，每行一个" Style="{StaticResource HintText}"/></StackPanel>
-                                                    <CheckBox Grid.Row="1" Grid.Column="1" Content="同时等待窗口目标" IsChecked="{Binding Monitor.Window.Enabled}"/>
-                                                    <TextBlock Grid.Row="2" Text="窗口进程名" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Monitor.Window.ProcessName, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="标题包含" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="3" Text="{Binding Monitor.Window.TitleContains, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="3" Text="窗口类名" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Monitor.Window.ClassName, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="就绪条件" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="3" Grid.Column="3" ItemsSource="{x:Static ui:EnumOptions.TargetMatchModes}" SelectedItem="{Binding Monitor.ReadyMode}"/>
-                                                    <TextBlock Grid.Row="4" Text="退出条件" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.TargetLossModes}" SelectedItem="{Binding Monitor.ExitMode}"/>
-                                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="启动超时 (ms)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="4" Grid.Column="3" Text="{Binding Monitor.StartupTimeoutMs, UpdateSourceTrigger=LostFocus}"/>
-                                                    <TextBlock Grid.Row="5" Text="轮询间隔 (ms)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Monitor.PollIntervalMs, UpdateSourceTrigger=LostFocus}"/>
-                                                    <TextBlock Grid.Row="5" Grid.Column="2" Text="就绪延迟 (ms)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="5" Grid.Column="3" Text="{Binding Monitor.ReadyDelayMs, UpdateSourceTrigger=LostFocus}"/>
+                                                    <ui:HelpLabel Title="进程名" HelpText="用于判断游戏是否已经启动或退出的进程名候选列表。任意一个进程存在即满足进程条件，可省略 .exe。"/><StackPanel Grid.Column="1" Grid.ColumnSpan="3"><TextBox AcceptsReturn="True" MinHeight="58" Text="{Binding Monitor.ProcessNames, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="不包含 .exe，每行一个" Style="{StaticResource HintText}"/></StackPanel>
+                                                    <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding Monitor.Window.Enabled}"><ui:HelpLabel Title="同时等待窗口目标" HelpText="除进程条件外，还根据下面的窗口进程、标题或类名判断游戏是否就绪和退出。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                                    <ui:HelpLabel Grid.Row="2" Title="窗口进程名" HelpText="只匹配属于该进程的顶层窗口；留空时不限制窗口所属进程。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Monitor.Window.ProcessName, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="2" Grid.Column="2" Title="标题包含" HelpText="窗口标题必须包含的文字，留空时不限制标题。"/><TextBox Grid.Row="2" Grid.Column="3" Text="{Binding Monitor.Window.TitleContains, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="3" Title="窗口类名" HelpText="要精确匹配的 Windows 窗口类名，留空时不限制窗口类。"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Monitor.Window.ClassName, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="3" Grid.Column="2" Title="就绪条件" HelpText="同时配置进程和窗口条件时，决定满足任意条件还是必须满足全部条件才认为游戏启动成功。"/><ComboBox Grid.Row="3" Grid.Column="3" ItemsSource="{x:Static ui:EnumOptions.TargetMatchModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Monitor.ReadyMode}"/>
+                                                    <ui:HelpLabel Grid.Row="4" Title="退出条件" HelpText="决定任一监控目标消失时就唤回启动器，还是等所有目标都消失后再返回。"/><ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.TargetLossModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Monitor.ExitMode}"/>
+                                                    <ui:HelpLabel Grid.Row="4" Grid.Column="2" Title="启动超时 (ms)" HelpText="启动命令执行后等待游戏进程或窗口满足就绪条件的最长时间。"/><TextBox Grid.Row="4" Grid.Column="3" Text="{Binding Monitor.StartupTimeoutMs, UpdateSourceTrigger=LostFocus}"/>
+                                                    <ui:HelpLabel Grid.Row="5" Title="轮询间隔 (ms)" HelpText="检查游戏进程和窗口状态的频率。数值越小响应越快，但检查也更频繁。"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Monitor.PollIntervalMs, UpdateSourceTrigger=LostFocus}"/>
+                                                    <ui:HelpLabel Grid.Row="5" Grid.Column="2" Title="就绪延迟 (ms)" HelpText="首次满足就绪条件后继续显示启动画面的时间；延迟结束后才隐藏启动器。"/><TextBox Grid.Row="5" Grid.Column="3" Text="{Binding Monitor.ReadyDelayMs, UpdateSourceTrigger=LostFocus}"/>
                                                 </Grid>
                                             </GroupBox>
 
                                             <GroupBox Header="游戏更新">
                                                 <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                                    <CheckBox Grid.Column="1" Content="启动前检查更新" IsChecked="{Binding Update.Enabled}"/>
-                                                    <TextBlock Grid.Row="1" Text="更新源 ID" Style="{StaticResource FieldLabel}"/><StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"><TextBox AcceptsReturn="True" MinHeight="58" Text="{Binding Update.SourceIds, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="按优先级每行一个；必须与“更新源”页的 ID 一致" Style="{StaticResource HintText}"/></StackPanel>
-                                                    <TextBlock Grid.Row="2" Text="应用模式" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.UpdateApplyModes}" SelectedItem="{Binding Update.ApplyMode}"/>
-                                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="目标目录" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="3" Text="{Binding Update.TargetDirectory, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="3" Text="版本文件" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Update.VersionFile, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <CheckBox Grid.Column="1" IsChecked="{Binding Update.Enabled}"><ui:HelpLabel Title="启动前检查更新" HelpText="运行游戏启动命令前，按配置的更新源顺序检查版本并应用可用更新。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                                    <ui:HelpLabel Grid.Row="1" Title="更新源" HelpText="启动前按列表顺序尝试这些更新源，首个成功或版本一致的来源会结束本次检查。已删除或改名的引用会标红并阻止保存。"/>
+                                                    <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3">
+                                                        <ListBox x:Name="UpdateSourceIdsList" MinHeight="60" MaxHeight="130" SelectionMode="Single">
+                                                            <ListBox.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <TextBlock Text="{Binding DisplayText}" ToolTip="{Binding ToolTip}">
+                                                                        <TextBlock.Style>
+                                                                            <Style TargetType="TextBlock">
+                                                                                <Setter Property="Padding" Value="4,3"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                                                                        <Setter Property="Foreground" Value="Crimson"/>
+                                                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </TextBlock.Style>
+                                                                    </TextBlock>
+                                                                </DataTemplate>
+                                                            </ListBox.ItemTemplate>
+                                                        </ListBox>
+                                                        <DockPanel Margin="0,8,0,0">
+                                                            <Button DockPanel.Dock="Right" Content="移除所选" Click="RemoveGameUpdateSource_Click" Margin="8,0,0,0"/>
+                                                            <Button DockPanel.Dock="Right" Content="下移" Click="MoveGameUpdateSourceDown_Click" Margin="8,0,0,0"/>
+                                                            <Button DockPanel.Dock="Right" Content="上移" Click="MoveGameUpdateSourceUp_Click" Margin="8,0,0,0"/>
+                                                            <Button DockPanel.Dock="Right" Content="添加" Click="AddGameUpdateSource_Click" Margin="8,0,0,0"/>
+                                                            <ComboBox x:Name="AvailableUpdateSourceCombo" DisplayMemberPath="Id"/>
+                                                        </DockPanel>
+                                                        <TextBlock Text="已删除或改名的更新源会标红，并阻止配置通过检查。" Style="{StaticResource HintText}"/>
+                                                    </StackPanel>
+                                                    <ui:HelpLabel Grid.Row="2" Title="应用模式" HelpText="控制更新文件如何写入目标目录：完整替换、覆盖已有并添加新文件，或只添加不存在的文件。"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.UpdateApplyModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Update.ApplyMode}"/>
+                                                    <ui:HelpLabel Grid.Row="2" Grid.Column="2" Title="目标目录" HelpText="更新文件最终写入的游戏目录。相对路径以该游戏的启动工作目录为基准。"/><DockPanel Grid.Row="2" Grid.Column="3"><Button DockPanel.Dock="Right" Margin="8,0,0,0" Content="浏览…" Click="BrowseGameUpdateTargetDirectory_Click"/><TextBox x:Name="GameUpdateTargetDirectoryBox" Text="{Binding Update.TargetDirectory, UpdateSourceTrigger=PropertyChanged}"/></DockPanel>
+                                                    <ui:HelpLabel Grid.Row="3" Title="版本文件" HelpText="来源目录和目标目录中用于比较版本的文件名；内容一致时会跳过复制。仅添加模式不会用它跳过更新。"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Update.VersionFile, UpdateSourceTrigger=PropertyChanged}"/>
                                                 </Grid>
                                             </GroupBox>
 
                                             <GroupBox Header="退出行为">
                                                 <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="195"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                                    <TextBlock Text="游戏结束后" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.GameExitBehaviors}" SelectedItem="{Binding OnExit}"/>
-                                                    <TextBlock Grid.Row="1" Text="错误标题" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ExitErrorTitle, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <TextBlock Grid.Row="2" Text="错误消息" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ExitErrorMessage, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Title="游戏结束后" HelpText="监控目标消失后返回游戏菜单，或显示需要人工确认的错误页面。"/><ComboBox Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.GameExitBehaviors}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding OnExit}"/>
+                                                    <ui:HelpLabel Grid.Row="1" Title="错误标题" HelpText="退出行为选择“显示错误页面”时使用的主标题。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ExitErrorTitle, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <ui:HelpLabel Grid.Row="2" Title="错误消息" HelpText="退出行为选择“显示错误页面”时使用的详细说明。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ExitErrorMessage, UpdateSourceTrigger=PropertyChanged}"/>
                                                 </Grid>
                                             </GroupBox>
 
@@ -314,10 +376,10 @@
                                                     <TextBlock Text="留空时使用“默认时间线”。这里的项目一旦存在，将完整替代默认时间线。" Style="{StaticResource HintText}" Margin="0,0,0,10"/>
                                                     <DataGrid x:Name="GameTimelineGrid" ItemsSource="{Binding Timeline}" AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="150" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                                         <DataGrid.Columns>
-                                                            <DataGridTextColumn Header="STEP" Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="80"/>
-                                                            <DataGridTextColumn Header="消息键" Binding="{Binding MessageKey, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                                            <DataGridTextColumn Header="持续 ms" Binding="{Binding DurationMs, UpdateSourceTrigger=LostFocus}" Width="110"/>
-                                                            <DataGridComboBoxColumn Header="动作" Width="120" ItemsSource="{x:Static ui:EnumOptions.BootPhaseActions}" SelectedItemBinding="{Binding Action}"/>
+                                                            <DataGridTextColumn Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="105"><DataGridTextColumn.Header><ui:HelpLabel Title="STEP" HelpText="启动画面显示的两位阶段编号。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                                            <DataGridTextColumn Binding="{Binding MessageKey, UpdateSourceTrigger=PropertyChanged}" Width="*"><DataGridTextColumn.Header><ui:HelpLabel Title="消息键" HelpText="从当前语言资源中读取阶段提示文字的本地化键。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                                            <DataGridTextColumn Binding="{Binding DurationMs, UpdateSourceTrigger=LostFocus}" Width="125"><DataGridTextColumn.Header><ui:HelpLabel Title="持续时间" HelpText="自动进入下一阶段前等待的毫秒数。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                                            <DataGridComboBoxColumn Width="170" ItemsSource="{x:Static ui:EnumOptions.BootPhaseActions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValueBinding="{Binding Action}"><DataGridComboBoxColumn.Header><ui:HelpLabel Title="完成动作" HelpText="此阶段计时结束后继续下一阶段、启动游戏或退出启动器。" Margin="0"/></DataGridComboBoxColumn.Header></DataGridComboBoxColumn>
                                                         </DataGrid.Columns>
                                                     </DataGrid>
                                                     <WrapPanel Margin="0,10,0,0"><Button Content="添加阶段" Click="AddGamePhase_Click"/><Button Content="删除阶段" Click="DeleteGamePhase_Click"/><Button Content="上移" Click="MoveGamePhaseUp_Click"/><Button Content="下移" Click="MoveGamePhaseDown_Click"/></WrapPanel>
@@ -340,10 +402,10 @@
                             <StackPanel>
                                 <DataGrid x:Name="DefaultTimelineGrid" ItemsSource="{Binding Timeline}" AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="360" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="STEP" Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="100"/>
-                                        <DataGridTextColumn Header="消息键" Binding="{Binding MessageKey, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                        <DataGridTextColumn Header="持续时间 (ms)" Binding="{Binding DurationMs, UpdateSourceTrigger=LostFocus}" Width="160"/>
-                                        <DataGridComboBoxColumn Header="完成动作" Width="180" ItemsSource="{x:Static ui:EnumOptions.BootPhaseActions}" SelectedItemBinding="{Binding Action}"/>
+                                        <DataGridTextColumn Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="130"><DataGridTextColumn.Header><ui:HelpLabel Title="STEP" HelpText="启动画面显示的两位阶段编号。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                        <DataGridTextColumn Binding="{Binding MessageKey, UpdateSourceTrigger=PropertyChanged}" Width="*"><DataGridTextColumn.Header><ui:HelpLabel Title="消息键" HelpText="从当前语言资源中读取阶段提示文字的本地化键。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                        <DataGridTextColumn Binding="{Binding DurationMs, UpdateSourceTrigger=LostFocus}" Width="180"><DataGridTextColumn.Header><ui:HelpLabel Title="持续时间 (ms)" HelpText="自动进入下一阶段前等待的毫秒数。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
+                                        <DataGridComboBoxColumn Width="190" ItemsSource="{x:Static ui:EnumOptions.BootPhaseActions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValueBinding="{Binding Action}"><DataGridComboBoxColumn.Header><ui:HelpLabel Title="完成动作" HelpText="此阶段计时结束后继续下一阶段、启动游戏或退出启动器。" Margin="0"/></DataGridComboBoxColumn.Header></DataGridComboBoxColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <WrapPanel Margin="0,12,0,0"><Button Content="添加阶段" Click="AddDefaultPhase_Click"/><Button Content="删除阶段" Click="DeleteDefaultPhase_Click"/><Button Content="上移" Click="MoveDefaultPhaseUp_Click"/><Button Content="下移" Click="MoveDefaultPhaseDown_Click"/><Button Content="恢复默认" Click="ResetDefaultTimeline_Click"/></WrapPanel>
@@ -358,7 +420,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <StackPanel><TextBlock Text="输入设备" Style="{StaticResource SectionTitle}"/><TextBlock Text="配置 HID 输入总开关和需要监听的机台设备。" Foreground="{StaticResource MutedBrush}"/></StackPanel>
                         <Border Grid.Row="1" Margin="0,16,0,16" Padding="16,8" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
-                            <WrapPanel><CheckBox Content="启用 HID 输入" IsChecked="{Binding Input.Enabled}"/><CheckBox Content="启用键盘调试" IsChecked="{Binding Input.KeyboardFallback}"/><TextBlock Text="热插拔扫描间隔 (ms)" Style="{StaticResource FieldLabel}" Margin="20,8,10,8"/><TextBox Width="140" Text="{Binding Input.HotPlugIntervalMs, UpdateSourceTrigger=LostFocus}"/></WrapPanel>
+                            <WrapPanel><CheckBox IsChecked="{Binding Input.Enabled}"><ui:HelpLabel Title="启用 HID 输入" HelpText="读取已配置机台设备的方向键、SELECT 和其他按钮输入。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox><CheckBox IsChecked="{Binding Input.KeyboardFallback}"><ui:HelpLabel Title="启用键盘调试" HelpText="没有机台输入设备时允许使用键盘进行操作和调试。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox><ui:HelpLabel Title="热插拔扫描间隔 (ms)" HelpText="设备未找到或断开后重新扫描和连接 HID 设备的时间间隔。" Margin="20,8,10,8"/><TextBox Width="140" Text="{Binding Input.HotPlugIntervalMs, UpdateSourceTrigger=LostFocus}"/></WrapPanel>
                         </Border>
                         <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -369,15 +431,15 @@
                             </Grid>
                             <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="20">
                                 <Grid DataContext="{Binding SelectedItem, ElementName=DevicesList}">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <CheckBox Grid.Column="1" Content="启用此设备" IsChecked="{Binding Enabled}"/>
-                                    <TextBlock Grid.Row="1" Text="名称" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <TextBlock Grid.Row="2" Text="解析配置" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.HidDeviceProfiles}" SelectedItem="{Binding Profile}"/>
-                                    <TextBlock Grid.Row="3" Text="玩家 (0/1/2)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Player, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Grid.Row="4" Text="同型号设备序号" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DeviceIndex, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Grid.Row="5" Text="VID" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding VendorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 0x0CA3"/>
-                                    <TextBlock Grid.Row="6" Text="PID 列表" Style="{StaticResource FieldLabel}"/><StackPanel Grid.Row="6" Grid.Column="1"><TextBox AcceptsReturn="True" MinHeight="90" Text="{Binding ProductIds, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="每行一个，例如 0x0021" Style="{StaticResource HintText}"/></StackPanel>
+                                    <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}"><ui:HelpLabel Title="启用此设备" HelpText="关闭后保留设备配置，但启动器不会尝试连接或读取它。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                    <ui:HelpLabel Grid.Row="1" Title="名称" HelpText="只用于在配置器中区分设备的备注名称，不参与硬件匹配。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <ui:HelpLabel Grid.Row="2" Title="解析配置" HelpText="选择与硬件相匹配的 HID 报告格式，以正确解析方向键、SELECT 和其他按钮。"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.HidDeviceProfiles}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Profile}"/>
+                                    <ui:HelpLabel Grid.Row="3" Title="玩家" HelpText="设为 1 或 2 时只作为对应玩家的设备；设为 0 时由报告、产品 ID 判断或同时读取两侧。"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Player, UpdateSourceTrigger=LostFocus}"/>
+                                    <ui:HelpLabel Grid.Row="4" Title="设备序号" HelpText="连接多个相同 VID/PID 的设备时，从按 Windows HID 路径排序后的第 0 个开始选择。"/><TextBox Grid.Row="4" Grid.Column="1" Text="{Binding DeviceIndex, UpdateSourceTrigger=LostFocus}"/>
+                                    <ui:HelpLabel Grid.Row="5" Title="VID" HelpText="USB 厂商标识，使用四位十六进制格式，例如 0x0CA3。"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding VendorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 0x0CA3"/>
+                                    <ui:HelpLabel Grid.Row="6" Title="PID 列表" HelpText="此配置允许匹配的 USB 产品标识列表，每行填写一个四位十六进制值。"/><StackPanel Grid.Row="6" Grid.Column="1"><TextBox AcceptsReturn="True" MinHeight="90" Text="{Binding ProductIds, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="每行一个，例如 0x0021" Style="{StaticResource HintText}"/></StackPanel>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -397,18 +459,18 @@
                             </Grid>
                             <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="20">
                                 <Grid DataContext="{Binding SelectedItem, ElementName=SourcesList}">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                    <CheckBox Grid.Column="1" Content="启用此更新源" IsChecked="{Binding Enabled}"/>
-                                    <TextBlock Grid.Row="1" Text="唯一 ID" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <TextBlock Grid.Row="2" Text="类型" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.UpdateSourceKinds}" SelectedItem="{Binding Kind}"/>
-                                    <TextBlock Grid.Row="3" Text="HTTP 根地址" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 http://192.168.1.10:8000/"/>
-                                    <TextBlock Grid.Row="4" Text="用户名" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <TextBlock Grid.Row="5" Text="密码" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" ToolTip="启动器配置以明文保存此值"/>
-                                    <TextBlock Grid.Row="6" Text="U 盘盘符" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="6" Grid.Column="1" Text="{Binding DriveLetter, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 F:"/>
-                                    <TextBlock Grid.Row="7" Text="更新目录" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <CheckBox Grid.Row="8" Grid.Column="1" Content="目录中包含多个游戏" IsChecked="{Binding ContainsMultipleGames}"/>
-                                    <TextBlock Grid.Row="9" Text="请求超时 (ms)" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="9" Grid.Column="1" Text="{Binding RequestTimeoutMs, UpdateSourceTrigger=LostFocus}"/>
+                                    <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}"><ui:HelpLabel Title="启用此更新源" HelpText="关闭后保留更新源配置，但游戏更新时会跳过它。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                    <ui:HelpLabel Grid.Row="1" Title="唯一 ID" HelpText="更新源的稳定唯一标识，供各游戏的更新源列表引用；修改后原有引用会被标记为无效。"/><TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <ui:HelpLabel Grid.Row="2" Title="类型" HelpText="选择通过 HTTP 文件服务器下载更新，或从指定的 U 盘、本地目录读取更新。"/><ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{x:Static ui:EnumOptions.UpdateSourceKinds}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Kind}"/>
+                                    <ui:HelpLabel Grid.Row="3" Title="HTTP 根地址" HelpText="HTTP 更新源的服务器根 URL，例如 http://192.168.1.10:8000/。仅 HTTP 类型使用。"/><TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 http://192.168.1.10:8000/"/>
+                                    <ui:HelpLabel Grid.Row="4" Title="用户名" HelpText="HTTP 基本认证的用户名；服务器不要求认证时留空。"/><TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <ui:HelpLabel Grid.Row="5" Title="密码" HelpText="HTTP 基本认证的密码。此值会以明文写入配置文件，请注意文件访问权限。"/><TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" ToolTip="启动器配置以明文保存此值"/>
+                                    <ui:HelpLabel Grid.Row="6" Title="U 盘盘符" HelpText="U 盘更新源所在的 Windows 盘符，例如 F:。仅 U 盘 / 本地目录类型使用。"/><TextBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding DriveLetter, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 F:"/>
+                                    <ui:HelpLabel Grid.Row="7" Title="更新目录" HelpText="更新文件在来源内的目录。HTTP 类型填写相对于根地址的 URL 路径；U 盘类型填写相对于盘符根目录的路径。"/><TextBox x:Name="UpdateSourcePathBox" Grid.Row="7" Grid.Column="1" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="7" Grid.Column="2" Margin="8,0,0,0" Content="浏览本地…" ToolTip="仅 U 盘 / 本地目录类型可浏览" Click="BrowseUpdateSourcePath_Click"/>
+                                    <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding ContainsMultipleGames}"><ui:HelpLabel Title="目录中包含多个游戏" HelpText="启用后会在更新目录下按游戏唯一 ID 继续进入对应子目录。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                    <ui:HelpLabel Grid.Row="9" Title="请求超时 (ms)" HelpText="单个 HTTP 请求允许等待的最长时间；超过此时间会尝试下一个更新源。"/><TextBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding RequestTimeoutMs, UpdateSourceTrigger=LostFocus}"/>
                                 </Grid>
                             </Border>
                         </Grid>
@@ -429,29 +491,29 @@
                             <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="4">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20" DataContext="{Binding SelectedItem, ElementName=OperationsList}">
                                     <GroupBox Header="菜单项">
-                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                            <TextBlock Text="唯一 ID" Style="{StaticResource FieldLabel}"/><TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBlock Grid.Row="1" Text="标题" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBlock Grid.Row="2" Text="说明" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBlock Grid.Row="3" Text="操作类型" Style="{StaticResource FieldLabel}"/><ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.OperationKinds}" SelectedItem="{Binding Kind}"/>
-                                            <CheckBox Grid.Row="4" Grid.Column="1" Content="执行后关闭启动器" IsChecked="{Binding CloseAfterRun}"/>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="215"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                            <ui:HelpLabel Title="唯一 ID" HelpText="机台操作的稳定唯一标识，用于在配置和日志中识别此菜单项。"/><TextBox Grid.Column="1" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ui:HelpLabel Grid.Row="1" Title="标题" HelpText="显示在机台操作菜单中的主标题。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ui:HelpLabel Grid.Row="2" Title="说明" HelpText="显示在机台操作菜单中的副标题或操作说明。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ui:HelpLabel Grid.Row="3" Title="操作类型" HelpText="决定选择此菜单项后执行自定义命令、退出启动器、关机、重启，还是更新所有游戏。"/><ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{x:Static ui:EnumOptions.OperationKinds}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Kind}"/>
+                                            <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding CloseAfterRun}"><ui:HelpLabel Title="执行后关闭启动器" HelpText="操作成功触发后立即结束 ALLS Bootstrapper；通常用于退出或接管前台的外部程序。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                         </Grid>
                                     </GroupBox>
-                                    <GroupBox Header="命令（Kind 为 Command 时使用）">
-                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                            <CheckBox Grid.Column="1" Content="启用命令" IsChecked="{Binding Command.Enabled}"/>
-                                            <TextBlock Grid.Row="1" Text="文件" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Command.File, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBlock Grid.Row="2" Text="候选文件" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" AcceptsReturn="True" MinHeight="58" Text="{Binding Command.Candidates, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/>
-                                            <TextBlock Grid.Row="3" Text="参数" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Command.Arguments, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <TextBlock Grid.Row="4" Text="工作目录" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Command.WorkingDirectory, UpdateSourceTrigger=PropertyChanged}"/>
-                                            <CheckBox Grid.Row="5" Grid.Column="1" Content="等待命令退出" IsChecked="{Binding Command.WaitForExit}"/>
+                                    <GroupBox Header="命令（操作类型为“运行自定义命令”时使用）">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="215"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding Command.Enabled}"><ui:HelpLabel Title="启用命令" HelpText="关闭后不会实际运行文件，适合暂时停用自定义命令而保留其配置。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                            <ui:HelpLabel Grid.Row="1" Title="文件" HelpText="操作类型为“运行自定义命令”时要执行的程序、批处理或脚本。"/><TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Command.File, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ui:HelpLabel Grid.Row="2" Title="候选文件" HelpText="“文件”为空时按列表顺序查找，使用第一个存在的文件。可每行填写一个，也可用逗号或分号分隔。"/><TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" AcceptsReturn="True" MinHeight="58" Text="{Binding Command.Candidates, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/>
+                                            <ui:HelpLabel Grid.Row="3" Title="参数" HelpText="原样传递给自定义命令的命令行参数。"/><TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Command.Arguments, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <ui:HelpLabel Grid.Row="4" Title="工作目录" HelpText="自定义命令的运行目录，也是相对文件名和候选文件的查找基准。"/><TextBox x:Name="OperationWorkingDirectoryBox" Grid.Row="4" Grid.Column="1" Text="{Binding Command.WorkingDirectory, UpdateSourceTrigger=PropertyChanged}"/><Button Grid.Row="4" Grid.Column="2" Margin="8,0,0,0" Content="浏览…" Click="BrowseOperationWorkingDirectory_Click"/>
+                                            <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding Command.WaitForExit}"><ui:HelpLabel Title="等待命令退出" HelpText="启用后保持等待，直到自定义命令进程结束后才继续后续流程。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                         </Grid>
                                     </GroupBox>
                                     <GroupBox Header="执行确认">
-                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                            <CheckBox Grid.Column="1" Content="执行前要求确认" IsChecked="{Binding Confirmation.Enabled}"/>
-                                            <TextBlock Grid.Row="1" Text="确认标题" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Confirmation.Title, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用本地化默认文案"/>
-                                            <TextBlock Grid.Row="2" Text="确认消息" Style="{StaticResource FieldLabel}"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Confirmation.Message, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用本地化默认文案"/>
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="215"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding Confirmation.Enabled}"><ui:HelpLabel Title="执行前要求确认" HelpText="选择此操作后先显示确认页面，避免误触关机、重启或其他危险操作。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
+                                            <ui:HelpLabel Grid.Row="1" Title="确认标题" HelpText="执行确认页的标题；留空时使用当前界面语言对应的默认文案。"/><TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Confirmation.Title, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用本地化默认文案"/>
+                                            <ui:HelpLabel Grid.Row="2" Title="确认消息" HelpText="执行确认页的详细提示；留空时使用当前界面语言对应的默认文案。"/><TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Confirmation.Message, UpdateSourceTrigger=PropertyChanged}" ToolTip="留空时使用本地化默认文案"/>
                                         </Grid>
                                     </GroupBox>
                                 </StackPanel></ScrollViewer>

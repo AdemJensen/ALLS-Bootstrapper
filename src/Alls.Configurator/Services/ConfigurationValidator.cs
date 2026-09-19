@@ -52,9 +52,11 @@ internal static partial class ConfigurationValidator
                 issues.Add(new(ValidationSeverity.Error, $"游戏 / {label}", "已启用启动命令，但文件和候选文件均为空"));
             }
 
-            foreach (var missingId in game.Update.SourceIds.Where(id => !sourceIds.Contains(id)))
+            foreach (var missingId in game.Update.SourceIds
+                         .Where(id => !sourceIds.Contains(id))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                issues.Add(new(ValidationSeverity.Error, $"游戏 / {label}", $"引用了不存在的更新源“{missingId}”"));
+                issues.Add(new(ValidationSeverity.Error, $"游戏 / {label}", $"更新源 ID 列表包含不存在的更新源“{missingId}”"));
             }
 
             if (game.Monitor.ProcessNames.Count == 0 && !game.Monitor.Window.Enabled)

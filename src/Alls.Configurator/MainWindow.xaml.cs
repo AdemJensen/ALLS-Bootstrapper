@@ -15,6 +15,12 @@ namespace Alls.Configurator;
 
 public partial class MainWindow : Window
 {
+    private sealed record UpdateSourceReference(int Index, string Id, bool IsValid)
+    {
+        public string DisplayText => IsValid ? Id : $"{Id}（更新源不存在）";
+        public string ToolTip => IsValid ? $"使用更新源“{Id}”" : $"找不到 ID 为“{Id}”的更新源；请移除或重新添加";
+    }
+
     private readonly ConfigurationDocumentService documents = new();
     private LauncherSettings settings = new();
     private string? currentPath;
@@ -289,6 +295,30 @@ public partial class MainWindow : Window
         return dialog.ShowDialog(this) == true ? ToConfigRelativePath(dialog.FileName) : null;
     }
 
+    private string? PickDirectory(string title, string? configuredPath)
+    {
+        var dialog = new OpenFolderDialog { Title = title, Multiselect = false };
+        var baseDirectory = currentPath is null
+            ? Environment.CurrentDirectory
+            : Path.GetDirectoryName(currentPath) ?? Environment.CurrentDirectory;
+        var candidate = baseDirectory;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(configuredPath))
+            {
+                candidate = Path.IsPathRooted(configuredPath)
+                    ? configuredPath
+                    : Path.GetFullPath(configuredPath, baseDirectory);
+            }
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // An invalid value should not prevent the user from replacing it with a browsed directory.
+        }
+        if (Directory.Exists(candidate)) dialog.InitialDirectory = candidate;
+        return dialog.ShowDialog(this) == true ? ToConfigRelativePath(dialog.FolderName) : null;
+    }
+
     private void BrowseLogo_Click(object sender, RoutedEventArgs e)
     {
         var path = PickFile("选择 Logo 图片", "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有文件|*.*");
@@ -299,6 +329,36 @@ public partial class MainWindow : Window
     {
         var path = PickFile("选择加载动画", "GIF 动画|*.gif|图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有文件|*.*");
         if (path is not null) LoadingPathBox.Text = path;
+    }
+
+    private void BrowseGameWorkingDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PickDirectory("选择游戏工作目录", SelectedGame?.Launch.WorkingDirectory);
+        if (path is not null) GameWorkingDirectoryBox.Text = path;
+    }
+
+    private void BrowseGameUpdateTargetDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PickDirectory("选择游戏更新目标目录", SelectedGame?.Update.TargetDirectory);
+        if (path is not null) GameUpdateTargetDirectoryBox.Text = path;
+    }
+
+    private void BrowseUpdateSourcePath_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedSource is not { Kind: UpdateSourceKind.Usb })
+        {
+            MessageBox.Show(this, "HTTP 更新源的目录是相对于根地址的 URL 路径，请直接输入；浏览功能仅适用于 U 盘 / 本地目录。",
+                "无法浏览 HTTP 目录", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var path = PickDirectory("选择更新源目录", SelectedSource?.Path);
+        if (path is not null) UpdateSourcePathBox.Text = path;
+    }
+
+    private void BrowseOperationWorkingDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PickDirectory("选择命令工作目录", SelectedOperation?.Command.WorkingDirectory);
+        if (path is not null) OperationWorkingDirectoryBox.Text = path;
     }
 
     private static T CloneItem<T>(T value)
@@ -324,6 +384,7 @@ public partial class MainWindow : Window
         SourcesList.Items.Refresh();
         OperationsList.Items.Refresh();
         DefaultGameCombo.Items.Refresh();
+        RefreshGameUpdateSources();
     }
 
     private static void MoveItem<T>(List<T> list, T? item, int delta, ItemsControl control)
@@ -353,7 +414,8 @@ public partial class MainWindow : Window
         suppressChanges = true;
         GameLayoutOverride.IsChecked = game?.LayoutMode is not null;
         GameLayoutCombo.IsEnabled = game?.LayoutMode is not null;
-        if (game?.LayoutMode is not null) GameLayoutCombo.SelectedItem = game.LayoutMode.Value;
+        if (game?.LayoutMode is not null) GameLayoutCombo.SelectedValue = game.LayoutMode.Value;
+        RefreshGameUpdateSources();
         Dispatcher.InvokeAsync(() => suppressChanges = false, DispatcherPriority.ContextIdle);
     }
 
@@ -366,12 +428,12 @@ public partial class MainWindow : Window
         if (enabled && game.LayoutMode is null)
         {
             game.LayoutMode = settings.Display.LayoutMode;
-            GameLayoutCombo.SelectedItem = game.LayoutMode.Value;
+            GameLayoutCombo.SelectedValue = game.LayoutMode.Value;
         }
         else if (!enabled)
         {
             game.LayoutMode = null;
-            GameLayoutCombo.SelectedItem = null;
+            GameLayoutCombo.SelectedValue = null;
         }
         SetDirty();
     }
@@ -402,6 +464,67 @@ public partial class MainWindow : Window
 
     private void MoveGameUp_Click(object sender, RoutedEventArgs e) { MoveItem(settings.Games, SelectedGame, -1, GamesList); SetDirty(); }
     private void MoveGameDown_Click(object sender, RoutedEventArgs e) { MoveItem(settings.Games, SelectedGame, 1, GamesList); SetDirty(); }
+
+    private void RefreshGameUpdateSources()
+    {
+        if (UpdateSourceIdsList is null || AvailableUpdateSourceCombo is null) return;
+        var game = SelectedGame;
+        if (game is null)
+        {
+            UpdateSourceIdsList.ItemsSource = null;
+            AvailableUpdateSourceCombo.ItemsSource = null;
+            return;
+        }
+
+        var validIds = settings.UpdateSources
+            .Select(source => source.Id)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        UpdateSourceIdsList.ItemsSource = game.Update.SourceIds
+            .Select((id, index) => new UpdateSourceReference(index, id, validIds.Contains(id)))
+            .ToList();
+
+        var referencedIds = game.Update.SourceIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        AvailableUpdateSourceCombo.ItemsSource = settings.UpdateSources
+            .Where(source => !string.IsNullOrWhiteSpace(source.Id) && !referencedIds.Contains(source.Id))
+            .ToList();
+        AvailableUpdateSourceCombo.SelectedIndex = AvailableUpdateSourceCombo.Items.Count > 0 ? 0 : -1;
+    }
+
+    private void AddGameUpdateSource_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedGame is not { } game || AvailableUpdateSourceCombo.SelectedItem is not UpdateSourceSettings source) return;
+        if (!game.Update.SourceIds.Contains(source.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            game.Update.SourceIds.Add(source.Id);
+            RefreshGameUpdateSources();
+            SetDirty();
+        }
+    }
+
+    private void RemoveGameUpdateSource_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedGame is not { } game || UpdateSourceIdsList.SelectedItem is not UpdateSourceReference reference) return;
+        game.Update.SourceIds.RemoveAt(reference.Index);
+        RefreshGameUpdateSources();
+        SetDirty();
+    }
+
+    private void MoveGameUpdateSourceUp_Click(object sender, RoutedEventArgs e) => MoveGameUpdateSource(-1);
+    private void MoveGameUpdateSourceDown_Click(object sender, RoutedEventArgs e) => MoveGameUpdateSource(1);
+
+    private void MoveGameUpdateSource(int delta)
+    {
+        if (SelectedGame is not { } game || UpdateSourceIdsList.SelectedItem is not UpdateSourceReference reference) return;
+        var target = reference.Index + delta;
+        if (target < 0 || target >= game.Update.SourceIds.Count) return;
+        var id = game.Update.SourceIds[reference.Index];
+        game.Update.SourceIds.RemoveAt(reference.Index);
+        game.Update.SourceIds.Insert(target, id);
+        RefreshGameUpdateSources();
+        UpdateSourceIdsList.SelectedIndex = target;
+        SetDirty();
+    }
 
     private void AddGamePhase_Click(object sender, RoutedEventArgs e)
     {
@@ -440,9 +563,9 @@ public partial class MainWindow : Window
     // Update sources
     private UpdateSourceSettings? SelectedSource => SourcesList.SelectedItem as UpdateSourceSettings;
     private void SourcesList_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
-    private void AddSource_Click(object sender, RoutedEventArgs e) { var item = new UpdateSourceSettings { Id = UniqueId("update-source", settings.UpdateSources.Select(source => source.Id)), Enabled = true, Kind = UpdateSourceKind.Http }; settings.UpdateSources.Add(item); SourcesList.Items.Refresh(); SourcesList.SelectedItem = item; SetDirty(); }
-    private void DuplicateSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var clone = CloneItem(selected); clone.Id = UniqueId(selected.Id + "-copy", settings.UpdateSources.Select(source => source.Id)); settings.UpdateSources.Insert(settings.UpdateSources.IndexOf(selected) + 1, clone); SourcesList.Items.Refresh(); SourcesList.SelectedItem = clone; SetDirty(); }
-    private void DeleteSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var index = settings.UpdateSources.IndexOf(selected); settings.UpdateSources.Remove(selected); SourcesList.Items.Refresh(); SourcesList.SelectedIndex = Math.Min(index, settings.UpdateSources.Count - 1); SetDirty(); }
+    private void AddSource_Click(object sender, RoutedEventArgs e) { var item = new UpdateSourceSettings { Id = UniqueId("update-source", settings.UpdateSources.Select(source => source.Id)), Enabled = true, Kind = UpdateSourceKind.Http }; settings.UpdateSources.Add(item); SourcesList.Items.Refresh(); SourcesList.SelectedItem = item; RefreshGameUpdateSources(); SetDirty(); }
+    private void DuplicateSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var clone = CloneItem(selected); clone.Id = UniqueId(selected.Id + "-copy", settings.UpdateSources.Select(source => source.Id)); settings.UpdateSources.Insert(settings.UpdateSources.IndexOf(selected) + 1, clone); SourcesList.Items.Refresh(); SourcesList.SelectedItem = clone; RefreshGameUpdateSources(); SetDirty(); }
+    private void DeleteSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var index = settings.UpdateSources.IndexOf(selected); settings.UpdateSources.Remove(selected); SourcesList.Items.Refresh(); SourcesList.SelectedIndex = Math.Min(index, settings.UpdateSources.Count - 1); RefreshGameUpdateSources(); SetDirty(); }
     private void MoveSourceUp_Click(object sender, RoutedEventArgs e) { MoveItem(settings.UpdateSources, SelectedSource, -1, SourcesList); SetDirty(); }
     private void MoveSourceDown_Click(object sender, RoutedEventArgs e) { MoveItem(settings.UpdateSources, SelectedSource, 1, SourcesList); SetDirty(); }
 

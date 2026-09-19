@@ -58,7 +58,8 @@ ALLS.Configurator.exe .\alls-launcher.json
 
 ## 环境与构建
 
-需要 Windows 10/11、Visual Studio 2022（含“.NET 桌面开发”工作负载）或 .NET 8 SDK。
+程序运行需要 Windows 10/11。项目可以在 Windows 或 macOS 上使用 .NET 8 SDK 构建；
+Windows 用户也可以使用 Visual Studio 2022（含“.NET 桌面开发”工作负载）。
 
 ```powershell
 dotnet restore ALLS.sln
@@ -69,8 +70,10 @@ Bootstrapper 使用 HidSharp 读取 Raw HID，首次还原时需要从 NuGet 获
 
 ### 合并发布两个完全自包含单文件（推荐）
 
-下面的 PowerShell 命令会将 Bootstrapper 和 Configurator 一起发布到
-`artifacts\ALLS-win-x64`，然后生成 `artifacts\ALLS-win-x64.zip`：
+以下命令会将 Bootstrapper 和 Configurator 一起发布到 `artifacts\ALLS-win-x64`，
+然后生成 `artifacts\ALLS-win-x64.zip`。
+
+#### Windows PowerShell
 
 ```powershell
 $publishDir = Join-Path $PWD "artifacts\ALLS-win-x64"
@@ -99,6 +102,43 @@ Compress-Archive -Path "$publishDir\*" `
   -DestinationPath "artifacts\ALLS-win-x64.zip" -Force
 ```
 
+#### macOS（zsh/bash）
+
+macOS 需要安装 .NET 8 SDK，但不需要 Wine 或 Windows 虚拟机。项目文件已经启用 Windows
+交叉构建；从仓库根目录执行：
+
+```bash
+set -euo pipefail
+
+publish_dir="$PWD/artifacts/ALLS-win-x64"
+archive_path="$PWD/artifacts/ALLS-win-x64.zip"
+
+rm -rf -- "$publish_dir"
+rm -f -- "$archive_path"
+mkdir -p "$publish_dir"
+
+dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj \
+  -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:EnableCompressionInSingleFile=true \
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans \
+  -p:DebugType=None -p:DebugSymbols=false \
+  -o "$publish_dir"
+
+dotnet publish src/Alls.Configurator/Alls.Configurator.csproj \
+  -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:EnableCompressionInSingleFile=true \
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans \
+  -p:DebugType=None -p:DebugSymbols=false \
+  -o "$publish_dir"
+
+ditto -c -k --keepParent \
+  "$publish_dir" "$archive_path"
+```
+
+如果 `dotnet` 没有加入 `PATH`，请将上面两处 `dotnet` 替换为 SDK 可执行文件的绝对路径。
+
 `PublishSingleFile` 将托管运行库嵌入 EXE，`IncludeNativeLibrariesForSelfExtract` 继续把 WPF
 原生运行库一并嵌入；启动时它们会自动解压到系统临时目录。最终发布目录只包含
 `ALLS.exe`、`ALLS.Configurator.exe`、`alls-launcher.json` 和 `Assets` 中的两项资源，
@@ -109,8 +149,7 @@ Compress-Archive -Path "$publishDir\*" `
 一次解压开销。项目没有启用 `PublishTrimmed`，因为 .NET 8 不支持或不建议对 WPF 程序进行
 裁剪，强行裁剪可能破坏 XAML、数据绑定和 JSON 反射访问。
 
-请从仓库根目录执行上述命令；它会先删除已有的
-`artifacts\ALLS-win-x64` 目录，避免旧版文件残留。
+请从仓库根目录执行上述命令；它会先删除已有的发布目录和 ZIP，避免旧版文件残留。
 
 ### 发布 Bootstrapper
 
