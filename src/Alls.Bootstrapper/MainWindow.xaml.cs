@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Alls.Bootstrapper.Models;
@@ -12,6 +14,13 @@ namespace Alls.Bootstrapper;
 
 public partial class MainWindow : Window
 {
+    private static readonly IntPtr HwndTop = IntPtr.Zero;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpShowWindow = 0x0040;
+    private const int SwShow = 5;
+
     private readonly DisplaySettings display;
     private readonly InputSettings inputSettings;
     private readonly LauncherViewModel viewModel;
@@ -19,6 +28,8 @@ public partial class MainWindow : Window
     private readonly ILogService log;
     private bool isClosing;
     private bool keyboardSwitchChordActive;
+    private bool launcherVisible = true;
+    private int foregroundRestoreGeneration;
 
     internal MainWindow(
         DisplaySettings display,
@@ -49,8 +60,7 @@ public partial class MainWindow : Window
     {
         ConfigureWindow();
         ApplyDisplayLayout();
-        Activate();
-        Focus();
+        RestoreLauncherForeground();
         input.Start();
         await viewModel.StartAsync();
     }
@@ -410,16 +420,94 @@ public partial class MainWindow : Window
         {
             if (e.Visible)
             {
+                launcherVisible = true;
+                var generation = ++foregroundRestoreGeneration;
                 Show();
                 ConfigureWindow();
-                Activate();
-                Focus();
+                RestoreLauncherForeground();
+                _ = ReinforceForegroundAsync(generation);
             }
             else
             {
+                launcherVisible = false;
+                foregroundRestoreGeneration++;
+                Topmost = false;
                 Hide();
             }
         });
+    }
+
+    private async Task ReinforceForegroundAsync(int generation)
+    {
+        await Task.Delay(100);
+        if (!launcherVisible || generation != foregroundRestoreGeneration || isClosing)
+        {
+            return;
+        }
+
+        RestoreLauncherForeground();
+        await Task.Delay(250);
+        if (launcherVisible && generation == foregroundRestoreGeneration && !isClosing)
+        {
+            RestoreLauncherForeground();
+        }
+    }
+
+    private void RestoreLauncherForeground()
+    {
+        if (!IsVisible || !OperatingSystem.IsWindows())
+        {
+            Activate();
+            Focus();
+            return;
+        }
+
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _ = ShowWindow(handle, SwShow);
+        _ = SetWindowPos(
+            handle,
+            display.Topmost ? HwndTopmost : HwndTop,
+            0,
+            0,
+            0,
+            0,
+            SwpNoMove | SwpNoSize | SwpShowWindow);
+
+        var foreground = GetForegroundWindow();
+        var currentThread = GetCurrentThreadId();
+        var foregroundThread = foreground == IntPtr.Zero
+            ? 0
+            : GetWindowThreadProcessId(foreground, out _);
+        var attached = foregroundThread != 0
+            && foregroundThread != currentThread
+            && AttachThreadInput(currentThread, foregroundThread, true);
+        try
+        {
+            _ = BringWindowToTop(handle);
+            _ = SetForegroundWindow(handle);
+            _ = SetActiveWindow(handle);
+            _ = SetFocus(handle);
+        }
+        finally
+        {
+            if (attached)
+            {
+                _ = AttachThreadInput(currentThread, foregroundThread, false);
+            }
+        }
+
+        Activate();
+        Focus();
+        Keyboard.Focus(this);
+        if (display.HideCursor)
+        {
+            _ = SetCursor(IntPtr.Zero);
+        }
     }
 
     private void OnCloseRequested(object? sender, EventArgs e)
@@ -450,4 +538,49 @@ public partial class MainWindow : Window
         log.Info("ALLS bootstrapper stopped.");
         Application.Current.Shutdown();
     }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr handle, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr handle,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool attach);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool BringWindowToTop(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetActiveWindow(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetFocus(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetCursor(IntPtr cursor);
 }

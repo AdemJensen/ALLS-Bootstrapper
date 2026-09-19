@@ -8,6 +8,7 @@
         Background="{StaticResource BootBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
+        ShowInTaskbar="False"
         ResizeMode="NoResize"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"

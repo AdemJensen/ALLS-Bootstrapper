@@ -938,6 +938,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             }
 
             IsBusy = false;
+            _ = monitor.TryActivateTargetWindow(game.Monitor, settings.Display.HideCursor);
             WindowVisibilityRequested?.Invoke(this, new WindowVisibilityEventArgs(false));
             await monitor.WaitUntilStoppedAsync(game.Monitor, token);
             if (!IsCurrent(generation))

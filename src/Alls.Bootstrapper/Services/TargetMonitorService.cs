@@ -10,6 +10,9 @@ internal sealed record TargetReadyResult(bool Ready, string? Error = null);
 
 internal sealed class TargetMonitorService(ILogService log)
 {
+    private const int SwShow = 5;
+    private const int SwRestore = 9;
+
     public async Task<TargetReadyResult> WaitUntilReadyAsync(
         ProcessMonitorSettings settings,
         CancellationToken cancellationToken)
@@ -61,6 +64,34 @@ internal sealed class TargetMonitorService(ILogService log)
         }
     }
 
+    public bool TryActivateTargetWindow(ProcessMonitorSettings settings, bool hideCursor)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        var handle = FindTargetWindow(settings);
+        if (handle == IntPtr.Zero)
+        {
+            log.Info("No visible game window was available for foreground focus handoff.");
+            return false;
+        }
+
+        _ = ShowWindowAsync(handle, IsIconic(handle) ? SwRestore : SwShow);
+        _ = BringWindowToTop(handle);
+        var activated = SetForegroundWindow(handle);
+        if (hideCursor)
+        {
+            _ = SetCursor(IntPtr.Zero);
+        }
+
+        log.Info(activated
+            ? $"Foreground focus handed to game window 0x{handle.ToInt64():X}."
+            : $"Windows rejected foreground focus handoff to game window 0x{handle.ToInt64():X}.");
+        return activated;
+    }
+
     private static bool HasCriteria(ProcessMonitorSettings settings) =>
         settings.ProcessNames.Any(name => !string.IsNullOrWhiteSpace(name)) || settings.Window.Enabled;
 
@@ -72,7 +103,7 @@ internal sealed class TargetMonitorService(ILogService log)
             .Any(IsProcessRunning);
 
         var hasWindowCriterion = settings.Window.Enabled;
-        var windowPresent = !hasWindowCriterion || FindMatchingWindow(settings.Window);
+        var windowPresent = !hasWindowCriterion || FindMatchingWindow(settings.Window) != IntPtr.Zero;
         return new TargetState(hasProcessCriterion, processPresent, hasWindowCriterion, windowPresent);
     }
 
@@ -112,33 +143,70 @@ internal sealed class TargetMonitorService(ILogService log)
         }
     }
 
-    private static bool FindMatchingWindow(WindowTargetSettings target)
+    private static IntPtr FindTargetWindow(ProcessMonitorSettings settings)
+    {
+        if (settings.Window.Enabled)
+        {
+            var configuredWindow = FindMatchingWindow(settings.Window);
+            if (configuredWindow != IntPtr.Zero)
+            {
+                return configuredWindow;
+            }
+        }
+
+        var processNames = settings.ProcessNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => Path.GetFileNameWithoutExtension(name.Trim()))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (processNames.Count == 0)
+        {
+            return IntPtr.Zero;
+        }
+
+        return FindWindow(handle =>
+        {
+            GetWindowThreadProcessId(handle, out var processId);
+            try
+            {
+                using var process = Process.GetProcessById((int)processId);
+                return processNames.Contains(process.ProcessName);
+            }
+            catch
+            {
+                return false;
+            }
+        });
+    }
+
+    private static IntPtr FindMatchingWindow(WindowTargetSettings target)
     {
         if (!OperatingSystem.IsWindows())
         {
-            return false;
+            return IntPtr.Zero;
         }
 
-        var found = false;
+        return FindWindow(handle =>
+        {
+            GetWindowThreadProcessId(handle, out var processId);
+            return MatchesProcess(processId, target.ProcessName)
+                && Contains(GetWindowTitle(handle), target.TitleContains)
+                && EqualsIfConfigured(GetWindowClass(handle), target.ClassName);
+        });
+    }
+
+    private static IntPtr FindWindow(Func<IntPtr, bool> predicate)
+    {
+        var found = IntPtr.Zero;
         EnumWindows((handle, _) =>
         {
-            if (!IsWindowVisible(handle))
+            if (!IsWindowVisible(handle) || !predicate(handle))
             {
                 return true;
             }
 
-            GetWindowThreadProcessId(handle, out var processId);
-            if (!MatchesProcess(processId, target.ProcessName)
-                || !Contains(GetWindowTitle(handle), target.TitleContains)
-                || !EqualsIfConfigured(GetWindowClass(handle), target.ClassName))
-            {
-                return true;
-            }
-
-            found = true;
+            found = handle;
             return false;
         }, IntPtr.Zero);
-
         return found;
     }
 
@@ -231,4 +299,23 @@ internal sealed class TargetMonitorService(ILogService log)
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetClassName(IntPtr handle, StringBuilder className, int maximumCount);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool BringWindowToTop(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindowAsync(IntPtr handle, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetCursor(IntPtr cursor);
 }
