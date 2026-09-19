@@ -65,6 +65,35 @@
                 <TextBlock Grid.Column="1" Text="{Binding Description}" FontSize="17" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
+
+        <DataTemplate x:Key="UpdateEntryTemplate">
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="TextElement.Foreground" Value="#FF151515" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                <Setter Property="TextElement.Foreground" Value="White" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="290" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="21" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Id}" FontSize="13" Opacity="0.7" />
+                </StackPanel>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Status}"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           TextAlignment="Right"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid x:Name="WindowSurface" Background="{StaticResource BootBackgroundBrush}">
@@ -245,6 +274,146 @@
                 </StackPanel>
             </Grid>
 
+            <Grid Visibility="{Binding IsUpdateAllVisible, Converter={StaticResource BoolToVisibility}}">
+                <Image Width="190"
+                       Height="92"
+                       Margin="0,0,0,0"
+                       VerticalAlignment="Top"
+                       HorizontalAlignment="Center"
+                       Source="{Binding LogoPath}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+
+                <Grid Width="900" Margin="0,86,0,16" HorizontalAlignment="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="54" />
+                        <RowDefinition Height="26" />
+                        <RowDefinition Height="418" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="66" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <controls:AnimatedGifImage Width="40"
+                                                   Height="40"
+                                                   Margin="0,0,12,0"
+                                                   GifSource="{Binding LoadingPath}"
+                                                   IsAnimating="{Binding IsBusy}"
+                                                   Stretch="Uniform"
+                                                   RenderOptions.BitmapScalingMode="HighQuality">
+                            <controls:AnimatedGifImage.Style>
+                                <Style TargetType="controls:AnimatedGifImage">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsBusy}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Setter Property="Margin" Value="0" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </controls:AnimatedGifImage.Style>
+                        </controls:AnimatedGifImage>
+                        <TextBlock Text="{Binding UpdateAllTitle}"
+                                   FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                                   FontSize="32"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryTextBrush}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding UpdateGameListTitle}"
+                               FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               Foreground="#FF555555" />
+
+                    <ListBox x:Name="UpdateGameList"
+                             Grid.Row="2"
+                             ItemsSource="{Binding UpdateAllEntries}"
+                             SelectedIndex="{Binding SelectedUpdateGameIndex, Mode=OneWay}"
+                             IsHitTestVisible="False"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                             ItemContainerStyle="{StaticResource MenuListItemStyle}"
+                             ItemTemplate="{StaticResource UpdateEntryTemplate}" />
+
+                    <Border Grid.Row="3" Height="2" Background="#FFD0D0D0" VerticalAlignment="Center" />
+
+                    <ListBox x:Name="UpdateReturnMenu"
+                             Grid.Row="4"
+                             ItemsSource="{Binding UpdateReturnChoices}"
+                             SelectedIndex="{Binding SelectedUpdateReturnIndex, Mode=OneWay}"
+                             IsHitTestVisible="False"
+                             Background="Transparent"
+                             BorderThickness="0">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource MenuListItemStyle}">
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="VerticalContentAlignment" Value="Center" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" FontSize="22" FontWeight="SemiBold" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock Grid.Row="5"
+                               Margin="0,6,0,0"
+                               Text="{Binding UpdateAllHelp}"
+                               FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                               FontSize="17"
+                               Foreground="#FF555555"
+                               TextAlignment="Center" />
+                </Grid>
+
+                <Grid Visibility="{Binding IsUpdateDetailsVisible, Converter={StaticResource BoolToVisibility}}"
+                      Panel.ZIndex="20">
+                    <Border Background="#99000000" />
+                    <Border Width="840"
+                            Height="500"
+                            Padding="30"
+                            Background="#FFF8F8F8"
+                            BorderBrush="#FFE60022"
+                            BorderThickness="4"
+                            CornerRadius="10"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding UpdateDetailTitle}"
+                                       FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                                       FontSize="29"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource PrimaryTextBrush}"
+                                       TextAlignment="Center" />
+                            <ScrollViewer Grid.Row="1"
+                                          Margin="0,22,0,18"
+                                          VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding UpdateDetailMessage}"
+                                           FontFamily="Consolas, Yu Gothic UI, Meiryo UI"
+                                           FontSize="19"
+                                           Foreground="{StaticResource PrimaryTextBrush}"
+                                           TextWrapping="Wrap" />
+                            </ScrollViewer>
+                            <TextBlock Grid.Row="2"
+                                       Text="{DynamicResource UPDATE_DETAIL_CLOSE_HELP}"
+                                       FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+                                       FontSize="18"
+                                       Foreground="#FF555555"
+                                       TextAlignment="Center" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
             <Grid Visibility="{Binding IsErrorVisible, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Width="900" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="{Binding ErrorTitle}"
@@ -274,7 +443,7 @@
         <Canvas x:Name="MaimaiButtonGuide" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="10">
             <Grid x:Name="MaimaiGuideButton1" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
-                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,45 78,45 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
                     <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>
@@ -282,7 +451,7 @@
             </Grid>
             <Grid x:Name="MaimaiGuideButton2" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
-                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,45 78,45 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
                     <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF4E9BE3" Offset="0" /><GradientStop Color="#FF216CB6" Offset="0.5" /><GradientStop Color="#FF104B88" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>
@@ -290,7 +459,7 @@
             </Grid>
             <Grid x:Name="MaimaiGuideButton4" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
-                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,45 78,45 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
                     <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>
@@ -298,7 +467,7 @@
             </Grid>
             <Grid x:Name="MaimaiGuideButton5" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
-                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,45 78,45 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
                     <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>
@@ -306,7 +475,7 @@
             </Grid>
             <Grid x:Name="MaimaiGuideButton7" RenderTransformOrigin="0.5,0.5">
                 <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
-                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,45 78,45 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
                     <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF4E9BE3" Offset="0" /><GradientStop Color="#FF216CB6" Offset="0.5" /><GradientStop Color="#FF104B88" Offset="1" /></LinearGradientBrush></Path.Fill>
                     <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
                 </Path>

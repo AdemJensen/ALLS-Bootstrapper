@@ -290,6 +290,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.PropertyName == nameof(LauncherViewModel.SelectedUpdateGameIndex)
+            && viewModel.SelectedUpdateGameIndex >= 0
+            && viewModel.SelectedUpdateGameIndex < viewModel.UpdateAllEntries.Count)
+        {
+            UpdateGameList.ScrollIntoView(viewModel.UpdateAllEntries[viewModel.SelectedUpdateGameIndex]);
+            return;
+        }
+
         if (e.PropertyName is not (nameof(LauncherViewModel.StepLabel) or nameof(LauncherViewModel.Message)))
         {
             return;
@@ -320,9 +328,10 @@ public partial class MainWindow : Window
     {
         var showMenuGuide = viewModel.IsMenuVisible;
         var showConfirmationGuide = viewModel.IsConfirmationVisible;
+        var showUpdateGuide = viewModel.IsUpdateAllVisible;
         if (layoutMode != DisplayLayoutMode.MaimaiDx
             || !isPortrait
-            || (!showMenuGuide && !showConfirmationGuide))
+            || (!showMenuGuide && !showConfirmationGuide && !showUpdateGuide))
         {
             MaimaiButtonGuide.Visibility = Visibility.Collapsed;
             return;
@@ -344,8 +353,12 @@ public partial class MainWindow : Window
             (MaimaiGuideButton7, 7)
         };
 
-        MaimaiGuideButton2.Visibility = showMenuGuide ? Visibility.Visible : Visibility.Collapsed;
-        MaimaiGuideButton7.Visibility = showMenuGuide ? Visibility.Visible : Visibility.Collapsed;
+        MaimaiGuideButton2.Visibility = showMenuGuide || showUpdateGuide
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        MaimaiGuideButton7.Visibility = showMenuGuide || showUpdateGuide
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         MaimaiButtonGuide.Width = width;
         MaimaiButtonGuide.Height = height;
         foreach (var (button, number) in buttons)
@@ -358,6 +371,10 @@ public partial class MainWindow : Window
             if (button.Children.OfType<TextBlock>().FirstOrDefault() is { } label)
             {
                 label.FontSize = buttonHeight * 0.27;
+                label.RenderTransformOrigin = new Point(0.5, 0.5);
+                label.RenderTransform = number is >= 3 and <= 6
+                    ? new RotateTransform(180)
+                    : Transform.Identity;
             }
 
             Canvas.SetLeft(button, centerX + (Math.Cos(angle) * radius) - buttonWidth / 2);

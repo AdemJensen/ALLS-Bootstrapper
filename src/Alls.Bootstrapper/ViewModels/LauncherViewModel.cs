@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using Alls.Bootstrapper.Models;
 using Alls.Bootstrapper.Services;
 
@@ -9,6 +10,7 @@ internal enum LauncherScreen
     Boot,
     Menu,
     Confirmation,
+    UpdateAll,
     Error
 }
 
@@ -16,6 +18,12 @@ internal enum MenuSection
 {
     Games,
     Operations
+}
+
+internal enum UpdateAllSection
+{
+    Games,
+    Return
 }
 
 internal sealed class WindowVisibilityEventArgs(bool visible) : EventArgs
@@ -48,6 +56,36 @@ internal sealed class MenuEntryViewModel
         new(operation.Title, operation.Description, null, operation);
 }
 
+internal sealed class GameUpdateItemViewModel(GameSettings game, string status) : ViewModelBase
+{
+    private string status = status;
+    private string details = string.Empty;
+
+    public GameSettings Game { get; } = game;
+
+    public string Title => Game.Title;
+
+    public string Id => Game.Id;
+
+    public string Status
+    {
+        get => status;
+        private set => SetProperty(ref status, value);
+    }
+
+    public string Details
+    {
+        get => details;
+        private set => SetProperty(ref details, value);
+    }
+
+    public void Apply(string newStatus, string newDetails)
+    {
+        Status = newStatus;
+        Details = newDetails;
+    }
+}
+
 internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 {
     private readonly LauncherSettings settings;
@@ -75,6 +113,14 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private string confirmationTitle = string.Empty;
     private string confirmationMessage = string.Empty;
     private string activeGameLanguage = string.Empty;
+    private IReadOnlyList<GameUpdateItemViewModel> updateAllEntries = [];
+    private int selectedUpdateGameIndex;
+    private UpdateAllSection updateAllSection = UpdateAllSection.Return;
+    private bool updateAllRunning;
+    private bool isUpdateDetailsVisible;
+    private string updateAllTitle = string.Empty;
+    private string updateDetailTitle = string.Empty;
+    private string updateDetailMessage = string.Empty;
     private bool isBusy = true;
     private bool bootSequenceActive;
     private bool started;
@@ -109,6 +155,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         GameEntries = settings.Games.Select(MenuEntryViewModel.ForGame).ToList();
         OperationEntries = settings.Operations.Select(MenuEntryViewModel.ForOperation).ToList();
         ConfirmationChoices = [ConfirmationCancelText, ConfirmationAcceptText];
+        UpdateReturnChoices = [localization.Get("UPDATE_ALL_RETURN")];
     }
 
     public event EventHandler? CloseRequested;
@@ -127,6 +174,18 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     public IReadOnlyList<string> ConfirmationChoices { get; }
 
+    public IReadOnlyList<string> UpdateReturnChoices { get; }
+
+    public IReadOnlyList<GameUpdateItemViewModel> UpdateAllEntries
+    {
+        get => updateAllEntries;
+        private set
+        {
+            updateAllEntries = value;
+            RaisePropertyChanged();
+        }
+    }
+
     public string MenuTitle => localization.Get("OPERATION_MENU_TITLE");
 
     public string MenuHelp => localization.Get("OPERATION_MENU_HELP");
@@ -144,6 +203,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     public bool IsMenuVisible => Screen == LauncherScreen.Menu;
 
     public bool IsConfirmationVisible => Screen == LauncherScreen.Confirmation;
+
+    public bool IsUpdateAllVisible => Screen == LauncherScreen.UpdateAll;
 
     public bool IsErrorVisible => Screen == LauncherScreen.Error;
 
@@ -166,6 +227,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             RaisePropertyChanged(nameof(IsBootVisible));
             RaisePropertyChanged(nameof(IsMenuVisible));
             RaisePropertyChanged(nameof(IsConfirmationVisible));
+            RaisePropertyChanged(nameof(IsUpdateAllVisible));
             RaisePropertyChanged(nameof(IsErrorVisible));
         }
     }
@@ -197,6 +259,39 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     public int SelectedGameIndex => menuSection == MenuSection.Games ? selectedGameIndex : -1;
 
     public int SelectedOperationIndex => menuSection == MenuSection.Operations ? selectedOperationIndex : -1;
+
+    public int SelectedUpdateGameIndex =>
+        updateAllSection == UpdateAllSection.Games ? selectedUpdateGameIndex : -1;
+
+    public int SelectedUpdateReturnIndex => updateAllSection == UpdateAllSection.Return ? 0 : -1;
+
+    public string UpdateAllTitle
+    {
+        get => updateAllTitle;
+        private set => SetProperty(ref updateAllTitle, value);
+    }
+
+    public string UpdateAllHelp => localization.Get("UPDATE_ALL_HELP");
+
+    public string UpdateGameListTitle => localization.Get("UPDATE_ALL_GAME_LIST_TITLE");
+
+    public bool IsUpdateDetailsVisible
+    {
+        get => isUpdateDetailsVisible;
+        private set => SetProperty(ref isUpdateDetailsVisible, value);
+    }
+
+    public string UpdateDetailTitle
+    {
+        get => updateDetailTitle;
+        private set => SetProperty(ref updateDetailTitle, value);
+    }
+
+    public string UpdateDetailMessage
+    {
+        get => updateDetailMessage;
+        private set => SetProperty(ref updateDetailMessage, value);
+    }
 
     public int ConfirmationSelectedIndex
     {
@@ -271,10 +366,73 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                 HandleConfirmationInput(action);
                 break;
 
+            case LauncherScreen.UpdateAll:
+                HandleUpdateAllInput(action);
+                break;
+
             case LauncherScreen.Error when action is CabinetInputAction.Select or CabinetInputAction.Confirm:
                 ShowMenu();
                 break;
         }
+    }
+
+    private void HandleUpdateAllInput(CabinetInputAction action)
+    {
+        if (IsUpdateDetailsVisible)
+        {
+            if (action is CabinetInputAction.Confirm or CabinetInputAction.Select)
+            {
+                IsUpdateDetailsVisible = false;
+            }
+
+            return;
+        }
+
+        switch (action)
+        {
+            case CabinetInputAction.SwitchList when UpdateAllEntries.Count > 0:
+                updateAllSection = updateAllSection == UpdateAllSection.Games
+                    ? UpdateAllSection.Return
+                    : UpdateAllSection.Games;
+                RaiseUpdateAllSelectionChanged();
+                break;
+            case CabinetInputAction.Up when updateAllSection == UpdateAllSection.Games && UpdateAllEntries.Count > 0:
+                selectedUpdateGameIndex = (selectedUpdateGameIndex - 1 + UpdateAllEntries.Count) % UpdateAllEntries.Count;
+                RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+                break;
+            case CabinetInputAction.Down when updateAllSection == UpdateAllSection.Games && UpdateAllEntries.Count > 0:
+                selectedUpdateGameIndex = (selectedUpdateGameIndex + 1) % UpdateAllEntries.Count;
+                RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+                break;
+            case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Games:
+                ShowUpdateDetails();
+                break;
+            case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Return && !updateAllRunning:
+            case CabinetInputAction.Select when !updateAllRunning:
+                ShowMenu();
+                break;
+        }
+    }
+
+    private void ShowUpdateDetails()
+    {
+        var entry = UpdateAllEntries.ElementAtOrDefault(selectedUpdateGameIndex);
+        if (entry is null)
+        {
+            return;
+        }
+
+        UpdateDetailTitle = $"{entry.Title} ({entry.Id})";
+        UpdateDetailMessage = string.IsNullOrWhiteSpace(entry.Details)
+            ? localization.Get("UPDATE_DETAIL_WAITING")
+            : entry.Details;
+        IsUpdateDetailsVisible = true;
+    }
+
+    private void RaiseUpdateAllSelectionChanged()
+    {
+        RaisePropertyChanged(nameof(SelectedUpdateGameIndex));
+        RaisePropertyChanged(nameof(SelectedUpdateReturnIndex));
     }
 
     private void HandleMenuInput(CabinetInputAction action)
@@ -501,27 +659,56 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private async Task UpdateAllGamesAsync()
     {
         var generation = BeginSession(out var token);
-        Screen = LauncherScreen.Boot;
-        StepLabel = "STEP 12";
-        Message = localization.Get("UPDATE_ALL_MESSAGE");
+        ActiveLayoutMode = settings.Display.LayoutMode;
+        UpdateAllEntries = settings.Games
+            .Select(game => new GameUpdateItemViewModel(game, localization.Get("UPDATE_STATUS_WAITING")))
+            .ToList();
+        selectedUpdateGameIndex = 0;
+        updateAllSection = UpdateAllSection.Return;
+        updateAllRunning = true;
+        IsUpdateDetailsVisible = false;
+        UpdateAllTitle = localization.Get("UPDATE_ALL_RUNNING_TITLE");
         IsBusy = true;
         bootSequenceActive = false;
-        input.Suspend();
+        input.Resume();
+        Screen = LauncherScreen.UpdateAll;
+        RaiseUpdateAllSelectionChanged();
 
         try
         {
-            var games = settings.Games.Where(game => game.Update.Enabled).ToList();
-            log.Info($"Update-all operation started for {games.Count} configured game(s).");
-            foreach (var game in games)
+            log.Info($"Update-all operation started for {UpdateAllEntries.Count} configured game(s).");
+            var hadFailures = false;
+            foreach (var entry in UpdateAllEntries)
             {
                 token.ThrowIfCancellationRequested();
-                _ = await updater.TryUpdateAsync(game, settings.UpdateSources, token);
+                try
+                {
+                    var result = await updater.TryUpdateAsync(entry.Game, settings.UpdateSources, token);
+                    entry.Apply(GetUpdateStatus(result.Outcome), FormatUpdateDetails(result));
+                    hadFailures |= result.Outcome == GameUpdateOutcome.Failed;
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    hadFailures = true;
+                    log.Error($"Unexpected update failure for game '{entry.Game.Id}'.", exception);
+                    entry.Apply(
+                        localization.Get("UPDATE_STATUS_FAILED"),
+                        $"{localization.Get("UPDATE_DETAIL_OVERALL")} {localization.Get("UPDATE_STATUS_FAILED")}{Environment.NewLine}{Environment.NewLine}{exception}");
+                }
             }
 
             if (IsCurrent(generation))
             {
                 log.Info("Update-all operation completed.");
-                ShowMenuCore();
+                UpdateAllTitle = localization.Get(hadFailures
+                    ? "UPDATE_ALL_COMPLETE_WITH_ERRORS_TITLE"
+                    : "UPDATE_ALL_COMPLETE_TITLE");
+                updateAllRunning = false;
+                IsBusy = false;
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -530,13 +717,67 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception)
         {
-            log.Error("Unexpected update-all failure. Returning to the operation menu.", exception);
+            log.Error("Unexpected update-all failure.", exception);
             if (IsCurrent(generation))
             {
-                ShowMenuCore();
+                UpdateAllTitle = localization.Get("UPDATE_ALL_COMPLETE_WITH_ERRORS_TITLE");
+                updateAllRunning = false;
+                IsBusy = false;
             }
         }
     }
+
+    private string GetUpdateStatus(GameUpdateOutcome outcome) => outcome switch
+    {
+        GameUpdateOutcome.UpdateDisabled => localization.Get("UPDATE_STATUS_DISABLED"),
+        GameUpdateOutcome.NoSources => localization.Get("UPDATE_STATUS_NO_SOURCE"),
+        GameUpdateOutcome.UpToDate => localization.Get("UPDATE_STATUS_UP_TO_DATE"),
+        GameUpdateOutcome.Completed => localization.Get("UPDATE_STATUS_COMPLETED"),
+        _ => localization.Get("UPDATE_STATUS_FAILED")
+    };
+
+    private string FormatUpdateDetails(GameUpdateResult result)
+    {
+        var builder = new StringBuilder();
+        builder.Append(localization.Get("UPDATE_DETAIL_OVERALL"));
+        builder.Append(' ');
+        builder.AppendLine(GetUpdateStatus(result.Outcome));
+
+        if (result.Attempts.Count == 0)
+        {
+            builder.AppendLine(result.Outcome == GameUpdateOutcome.UpdateDisabled
+                ? localization.Get("UPDATE_DETAIL_DISABLED")
+                : localization.Get("UPDATE_DETAIL_NO_SOURCES"));
+            return builder.ToString().TrimEnd();
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(localization.Get("UPDATE_DETAIL_SOURCE_RESULTS"));
+        foreach (var attempt in result.Attempts)
+        {
+            builder.Append("• ");
+            builder.Append(attempt.SourceId);
+            builder.Append(": ");
+            builder.AppendLine(GetUpdateSourceStatus(attempt.Outcome));
+            if (!string.IsNullOrWhiteSpace(attempt.Detail))
+            {
+                builder.Append("  ");
+                builder.AppendLine(attempt.Detail);
+            }
+        }
+
+        return builder.ToString().TrimEnd();
+    }
+
+    private string GetUpdateSourceStatus(UpdateSourceOutcome outcome) => outcome switch
+    {
+        UpdateSourceOutcome.NotAttempted => localization.Get("UPDATE_SOURCE_NOT_ATTEMPTED"),
+        UpdateSourceOutcome.Missing => localization.Get("UPDATE_SOURCE_MISSING"),
+        UpdateSourceOutcome.Disabled => localization.Get("UPDATE_SOURCE_DISABLED"),
+        UpdateSourceOutcome.UpToDate => localization.Get("UPDATE_SOURCE_UP_TO_DATE"),
+        UpdateSourceOutcome.Completed => localization.Get("UPDATE_SOURCE_COMPLETED"),
+        _ => localization.Get("UPDATE_SOURCE_FAILED")
+    };
 
     private async Task RunGameAsync(GameSettings game)
     {

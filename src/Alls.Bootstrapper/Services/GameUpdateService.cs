@@ -8,6 +8,34 @@ using Alls.Bootstrapper.Models;
 
 namespace Alls.Bootstrapper.Services;
 
+internal enum GameUpdateOutcome
+{
+    UpdateDisabled,
+    NoSources,
+    UpToDate,
+    Completed,
+    Failed
+}
+
+internal enum UpdateSourceOutcome
+{
+    NotAttempted,
+    Missing,
+    Disabled,
+    UpToDate,
+    Completed,
+    Failed
+}
+
+internal sealed record UpdateSourceAttempt(
+    string SourceId,
+    UpdateSourceOutcome Outcome,
+    string? Detail = null);
+
+internal sealed record GameUpdateResult(
+    GameUpdateOutcome Outcome,
+    IReadOnlyList<UpdateSourceAttempt> Attempts);
+
 internal sealed class GameUpdateService(ILogService log) : IDisposable
 {
     private static readonly Regex HrefPattern = new(
@@ -16,26 +44,52 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
     private readonly HttpClient httpClient = new() { Timeout = Timeout.InfiniteTimeSpan };
 
-    public async Task<bool> TryUpdateAsync(
+    public async Task<GameUpdateResult> TryUpdateAsync(
         GameSettings game,
         IReadOnlyList<UpdateSourceSettings> configuredSources,
         CancellationToken cancellationToken)
     {
-        if (!game.Update.Enabled || game.Update.SourceIds.Count == 0)
+        var configuredSourceIds = game.Update.SourceIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
+        if (!game.Update.Enabled)
         {
-            return true;
+            return new GameUpdateResult(
+                GameUpdateOutcome.UpdateDisabled,
+                configuredSourceIds
+                    .Select(id => new UpdateSourceAttempt(id, UpdateSourceOutcome.NotAttempted))
+                    .ToList());
+        }
+
+        if (configuredSourceIds.Count == 0)
+        {
+            return new GameUpdateResult(GameUpdateOutcome.NoSources, []);
         }
 
         var sourcesById = configuredSources.ToDictionary(source => source.Id, StringComparer.OrdinalIgnoreCase);
-        foreach (var sourceId in game.Update.SourceIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+        var attempts = new List<UpdateSourceAttempt>();
+        var attemptedEnabledSource = false;
+        for (var sourceIndex = 0; sourceIndex < configuredSourceIds.Count; sourceIndex++)
         {
+            var sourceId = configuredSourceIds[sourceIndex];
             cancellationToken.ThrowIfCancellationRequested();
-            if (!sourcesById.TryGetValue(sourceId, out var source) || !source.Enabled)
+            if (!sourcesById.TryGetValue(sourceId, out var source))
             {
-                log.Error($"Update source '{sourceId}' is missing or disabled for game '{game.Id}'.");
+                var detail = $"Update source '{sourceId}' is not configured.";
+                attempts.Add(new UpdateSourceAttempt(sourceId, UpdateSourceOutcome.Missing, detail));
+                log.Error($"{detail} Game: '{game.Id}'.");
                 continue;
             }
 
+            if (!source.Enabled)
+            {
+                var detail = $"Update source '{sourceId}' is disabled.";
+                attempts.Add(new UpdateSourceAttempt(sourceId, UpdateSourceOutcome.Disabled, detail));
+                log.Error($"{detail} Game: '{game.Id}'.");
+                continue;
+            }
+
+            attemptedEnabledSource = true;
             string? stagingDirectory = null;
             try
             {
@@ -63,12 +117,22 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                 if (VersionsMatch(sourceDirectory, targetDirectory, game.Update))
                 {
                     log.Info($"Game update skipped because {game.Update.VersionFile} matches: {game.Id} ({source.Id}).");
-                    return true;
+                    attempts.Add(new UpdateSourceAttempt(
+                        source.Id,
+                        UpdateSourceOutcome.UpToDate,
+                        $"{game.Update.VersionFile} matches the installed version."));
+                    AppendNotAttemptedSources(attempts, configuredSourceIds, sourceIndex + 1);
+                    return new GameUpdateResult(GameUpdateOutcome.UpToDate, attempts);
                 }
 
                 ApplyUpdate(sourceDirectory, targetDirectory, game.Update.ApplyMode);
                 log.Info($"Game update completed: {game.Id} from {source.Id} using {game.Update.ApplyMode}.");
-                return true;
+                attempts.Add(new UpdateSourceAttempt(
+                    source.Id,
+                    UpdateSourceOutcome.Completed,
+                    $"Applied using {game.Update.ApplyMode} to {targetDirectory}."));
+                AppendNotAttemptedSources(attempts, configuredSourceIds, sourceIndex + 1);
+                return new GameUpdateResult(GameUpdateOutcome.Completed, attempts);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -76,6 +140,7 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
             }
             catch (Exception exception)
             {
+                attempts.Add(new UpdateSourceAttempt(source.Id, UpdateSourceOutcome.Failed, exception.Message));
                 log.Error($"Game update source failed: {game.Id} from {source.Id}.", exception);
             }
             finally
@@ -88,7 +153,20 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
         }
 
         log.Error($"All configured update sources failed for game '{game.Id}'. Game startup will continue.");
-        return false;
+        return new GameUpdateResult(
+            attemptedEnabledSource ? GameUpdateOutcome.Failed : GameUpdateOutcome.NoSources,
+            attempts);
+    }
+
+    private static void AppendNotAttemptedSources(
+        ICollection<UpdateSourceAttempt> attempts,
+        IReadOnlyList<string> sourceIds,
+        int startIndex)
+    {
+        for (var index = startIndex; index < sourceIds.Count; index++)
+        {
+            attempts.Add(new UpdateSourceAttempt(sourceIds[index], UpdateSourceOutcome.NotAttempted));
+        }
     }
 
     private async Task<string> DownloadHttpSourceAsync(
