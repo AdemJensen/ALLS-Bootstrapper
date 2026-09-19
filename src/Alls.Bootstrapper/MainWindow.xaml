@@ -143,7 +143,7 @@
                         <RowDefinition Height="245" />
                         <RowDefinition Height="12" />
                         <RowDefinition Height="26" />
-                        <RowDefinition Height="150" />
+                        <RowDefinition Height="190" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="{Binding MenuTitle}"
@@ -216,8 +216,8 @@
                                Foreground="{StaticResource PrimaryTextBrush}"
                                TextWrapping="Wrap"
                                TextAlignment="Center" />
-                    <ListBox Width="620"
-                             Height="78"
+                    <ListBox Width="520"
+                             Height="154"
                              Margin="0,44,0,0"
                              ItemsSource="{Binding ConfirmationChoices}"
                              SelectedIndex="{Binding ConfirmationSelectedIndex, Mode=OneWay}"
@@ -226,12 +226,12 @@
                              BorderThickness="0">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <UniformGrid Rows="1" Columns="2" />
+                                <UniformGrid Rows="2" Columns="1" />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem" BasedOn="{StaticResource MenuListItemStyle}">
-                                <Setter Property="Margin" Value="8,0" />
+                                <Setter Property="Margin" Value="0,6" />
                                 <Setter Property="HorizontalContentAlignment" Value="Center" />
                                 <Setter Property="VerticalContentAlignment" Value="Center" />
                             </Style>
@@ -272,30 +272,46 @@
     </Viewbox>
 
         <Canvas x:Name="MaimaiButtonGuide" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="10">
-            <Border x:Name="MaimaiGuideButton1" Background="#E6E60022" BorderBrush="#FFFFFFFF" BorderThickness="3" CornerRadius="100">
+            <Grid x:Name="MaimaiGuideButton1" RenderTransformOrigin="0.5,0.5">
+                <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
+                </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_1}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton2" Background="#E62D64B3" BorderBrush="#FFFFFFFF" BorderThickness="3" CornerRadius="100">
+            </Grid>
+            <Grid x:Name="MaimaiGuideButton2" RenderTransformOrigin="0.5,0.5">
+                <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF4E9BE3" Offset="0" /><GradientStop Color="#FF216CB6" Offset="0.5" /><GradientStop Color="#FF104B88" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
+                </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_2}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton3" Background="#80444444" BorderBrush="#BFFFFFFF" BorderThickness="2" CornerRadius="100">
-                <TextBlock Text="3" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton4" Background="#E6E60022" BorderBrush="#FFFFFFFF" BorderThickness="3" CornerRadius="100">
+            </Grid>
+            <Grid x:Name="MaimaiGuideButton4" RenderTransformOrigin="0.5,0.5">
+                <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
+                </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_4}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton5" Background="#E6E60022" BorderBrush="#FFFFFFFF" BorderThickness="3" CornerRadius="100">
+            </Grid>
+            <Grid x:Name="MaimaiGuideButton5" RenderTransformOrigin="0.5,0.5">
+                <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFF4260" Offset="0" /><GradientStop Color="#FFE60025" Offset="0.45" /><GradientStop Color="#FFA9001B" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
+                </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_5}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton6" Background="#80444444" BorderBrush="#BFFFFFFF" BorderThickness="2" CornerRadius="100">
-                <TextBlock Text="6" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton7" Background="#E62D64B3" BorderBrush="#FFFFFFFF" BorderThickness="3" CornerRadius="100">
+            </Grid>
+            <Grid x:Name="MaimaiGuideButton7" RenderTransformOrigin="0.5,0.5">
+                <Path Stretch="Fill" Stroke="#FFFFFFFF" StrokeThickness="2.5"
+                      Data="M 18,2 C 65,-2 135,-2 182,2 Q 196,4 191,18 L 177,49 Q 175,55 167,57 C 122,66 78,66 33,57 Q 25,55 23,49 L 9,18 Q 4,4 18,2 Z">
+                    <Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF4E9BE3" Offset="0" /><GradientStop Color="#FF216CB6" Offset="0.5" /><GradientStop Color="#FF104B88" Offset="1" /></LinearGradientBrush></Path.Fill>
+                    <Path.Effect><DropShadowEffect Color="#99000000" BlurRadius="8" ShadowDepth="3" Opacity="0.55" /></Path.Effect>
+                </Path>
                 <TextBlock Text="{DynamicResource MAIMAI_GUIDE_BUTTON_7}" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <Border x:Name="MaimaiGuideButton8" Background="#80444444" BorderBrush="#BFFFFFFF" BorderThickness="2" CornerRadius="100">
-                <TextBlock Text="8" Foreground="White" FontWeight="Bold" TextAlignment="Center" VerticalAlignment="Center" />
-            </Border>
+            </Grid>
         </Canvas>
     </Grid>
 </Window>

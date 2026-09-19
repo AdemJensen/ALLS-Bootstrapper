@@ -15,7 +15,9 @@ SEGA IO4/ADX HID/NPro DX/Maimoller IO 机台输入、独立的启动脚本与游
 - 启动中按 4 号或 5 号键跳过前置阶段，显示最后一个 STEP 并立即启动游戏。
 - 操作界面使用 1 号键上移、4 号键下移、5 号键确认，2+7 组合键快速切换游戏/操作列表。
 - 游戏列表独立滚动，关机、重启等机台操作固定显示，并支持二次确认。
+- 可从机台操作中一次性更新所有启用了自动更新的游戏。
 - 每个游戏可单独配置启动脚本、参数、工作目录、STEP 时间线、等待进程和等待窗口。
+- 每个游戏可单独指定 STEP 时间线语言，且不改变操作菜单语言。
 - 启动脚本完成后继续显示 STEP 30；游戏目标就绪并经过可配置延迟后才隐藏界面。
 - 支持从 HTTP 文件服务器或 U 盘按优先级自动更新游戏，更新失败不阻止游戏启动。
 - 指定进程结束或窗口消失后，按配置显示操作界面或错误页。
@@ -115,7 +117,7 @@ ALLS.exe --preview --windowed
 | `layoutMode` | 适用机台 | 布局行为 |
 | --- | --- | --- |
 | `Chunithm` | Chunithm 等横屏机台 | 1280×720 设计画布等比使用整个屏幕 |
-| `MaimaiDx` | maimai DX（SDEZ / SDGB / SDGA） | 在 1080×1920 竖屏底部建立约 1080×1080 的主显示区域，空出顶部副屏位置 |
+| `MaimaiDx` | maimai DX（SDEZ / SDGB / SDGA） | 在 1080×1920 竖屏最下方建立紧贴左、右、下边缘的 1080×1080 主显示圆区域，空出顶部副屏位置 |
 | `Ongeki` | Ongeki | 不预留顶部副屏，启动内容在整块竖屏中央显示 |
 | `CardMaker` | Card Maker | 不预留顶部副屏，独立保留为后续微调的预设 |
 | `Auto` | 自动判断 | 横屏使用 `Chunithm`，竖屏使用 `MaimaiDx` |
@@ -210,6 +212,7 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
     "title": "maimai DX",
     "description": "启动 maimai DX 游戏程序",
     "layoutMode": "MaimaiDx",
+    "language": "ja-JP",
     "launch": {
       "enabled": true,
       "file": null,
@@ -254,6 +257,7 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 | `id` | 唯一标识，同时供 `startup.defaultGameId` 引用 |
 | `title` / `description` | 操作界面显示的标题与说明 |
 | `layoutMode` | 可选的机型布局预设；省略时继承 `display.layoutMode` |
+| `language` | 可选的 Timeline 语言：`zh-CN`、`en-US`、`ja-JP`；空字符串或省略时继承顶层 `language` |
 | `launch` | 实际执行的启动器、批处理或脚本；它可以与被监控的游戏完全不同 |
 | `monitor` | 真正游戏进程/窗口的就绪与退出判断 |
 | `update` | 此游戏的更新来源顺序、复制策略与目标目录 |
@@ -290,6 +294,10 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 检测间隔；`readyDelayMs` 是目标首次满足条件后继续显示 STEP 30 的时间。延迟结束后启动器
 才隐藏。至少配置一个进程或窗口条件，否则游戏会被立即视为就绪，而守护程序会一直留在
 后台直到程序被手动退出。
+
+`games[].language` 只影响该游戏的 STEP 消息，包括更新阶段与等待游戏出现期间保持显示的
+STEP 30。操作菜单、确认页和错误页始终使用顶层 `language`，因此从日文游戏返回中文菜单时
+不需要重新加载界面资源。
 
 添加第二个游戏只需在 `games` 数组追加对象，并给它不同的 `id`、`layoutMode`、
 `launch` 和 `monitor`。操作界面会自动按数组顺序列出。例如同一台电脑可以混合配置：
@@ -461,8 +469,10 @@ Nginx 风格链接并递归下载。Basic Auth 密码以明文保存在 JSON 中
 ]
 ```
 
-`kind` 支持 `Shutdown`、`Restart`、`Exit` 和 `Command`。前两项调用 Windows 系统电源
-操作；`Exit` 只关闭启动器；`Command` 按与游戏 `launch` 相同的规则执行命令。
+`kind` 支持 `UpdateAllGames`、`Shutdown`、`Restart`、`Exit` 和 `Command`。
+`UpdateAllGames` 按游戏配置顺序依次更新所有 `games[].update.enabled` 为 `true` 的游戏；
+单个游戏更新失败不会阻止后续游戏。`Shutdown`、`Restart` 调用 Windows 系统电源操作；
+`Exit` 只关闭启动器；`Command` 按与游戏 `launch` 相同的规则执行命令。
 `confirmation.enabled` 决定是否显示二次确认，`title`、`message` 留空时使用当前语言的
 默认文字，也可自行覆盖。确认页默认选中“取消”，使用 1/4 切换、5 确认、SELECT 取消。
 `closeAfterRun` 决定普通命令成功启动后是否关闭 ALLS，否则返回操作界面。

@@ -95,6 +95,7 @@ internal sealed class ConfigurationService
             game.Id = EnsureUniqueId(game.Id, $"game-{index + 1}", usedGameIds);
             game.Title = string.IsNullOrWhiteSpace(game.Title) ? game.Id : game.Title;
             game.Description ??= string.Empty;
+            game.Language ??= string.Empty;
             game.ExitErrorTitle ??= "GAME PROGRAM ENDED";
             game.ExitErrorMessage ??= "游戏程序已经停止运行";
             game.Launch ??= new LaunchSettings();

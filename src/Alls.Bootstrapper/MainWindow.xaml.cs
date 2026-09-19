@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Alls.Bootstrapper.Models;
 using Alls.Bootstrapper.Services;
@@ -122,10 +123,9 @@ public partial class MainWindow : Window
 
         if (isPortrait)
         {
-            var stageSize = Math.Min(width, height * 0.75);
+            var stageSize = Math.Min(width, height);
             var contentHeight = stageSize * 720.0 / 1280.0;
-            var bottomMargin = height * 0.015;
-            var stageTop = height - stageSize - bottomMargin;
+            var stageTop = height - stageSize;
             DesignViewport.Width = stageSize;
             DesignViewport.Height = contentHeight;
             DesignViewport.Margin = new Thickness(0, stageTop + (stageSize - contentHeight) / 2, 0, 0);
@@ -318,45 +318,50 @@ public partial class MainWindow : Window
         double width,
         double height)
     {
-        if (layoutMode != DisplayLayoutMode.MaimaiDx || !isPortrait || !viewModel.IsMenuVisible)
+        var showMenuGuide = viewModel.IsMenuVisible;
+        var showConfirmationGuide = viewModel.IsConfirmationVisible;
+        if (layoutMode != DisplayLayoutMode.MaimaiDx
+            || !isPortrait
+            || (!showMenuGuide && !showConfirmationGuide))
         {
             MaimaiButtonGuide.Visibility = Visibility.Collapsed;
             return;
         }
 
-        var stageSize = Math.Min(width, height * 0.75);
-        var stageTop = height - stageSize - (height * 0.015);
+        var stageSize = Math.Min(width, height);
+        var stageTop = height - stageSize;
         var centerX = width / 2;
         var centerY = stageTop + stageSize / 2;
-        var diameter = Math.Clamp(stageSize * 0.09, 64, 104);
-        var radius = stageSize * 0.445;
-        var buttons = new Border[]
+        var buttonWidth = Math.Clamp(stageSize * 0.205, 150, 232);
+        var buttonHeight = Math.Clamp(stageSize * 0.072, 58, 82);
+        var radius = stageSize * 0.435;
+        var buttons = new (Grid Element, int Number)[]
         {
-            MaimaiGuideButton1,
-            MaimaiGuideButton2,
-            MaimaiGuideButton3,
-            MaimaiGuideButton4,
-            MaimaiGuideButton5,
-            MaimaiGuideButton6,
-            MaimaiGuideButton7,
-            MaimaiGuideButton8
+            (MaimaiGuideButton1, 1),
+            (MaimaiGuideButton2, 2),
+            (MaimaiGuideButton4, 4),
+            (MaimaiGuideButton5, 5),
+            (MaimaiGuideButton7, 7)
         };
 
+        MaimaiGuideButton2.Visibility = showMenuGuide ? Visibility.Visible : Visibility.Collapsed;
+        MaimaiGuideButton7.Visibility = showMenuGuide ? Visibility.Visible : Visibility.Collapsed;
         MaimaiButtonGuide.Width = width;
         MaimaiButtonGuide.Height = height;
-        for (var index = 0; index < buttons.Length; index++)
+        foreach (var (button, number) in buttons)
         {
-            var angle = (-67.5 + (index * 45)) * Math.PI / 180;
-            var button = buttons[index];
-            button.Width = diameter;
-            button.Height = diameter;
-            if (button.Child is TextBlock label)
+            var angleDegrees = -67.5 + ((number - 1) * 45);
+            var angle = angleDegrees * Math.PI / 180;
+            button.Width = buttonWidth;
+            button.Height = buttonHeight;
+            button.RenderTransform = new RotateTransform(angleDegrees + 90);
+            if (button.Children.OfType<TextBlock>().FirstOrDefault() is { } label)
             {
-                label.FontSize = diameter * 0.17;
+                label.FontSize = buttonHeight * 0.27;
             }
 
-            Canvas.SetLeft(button, centerX + (Math.Cos(angle) * radius) - diameter / 2);
-            Canvas.SetTop(button, centerY + (Math.Sin(angle) * radius) - diameter / 2);
+            Canvas.SetLeft(button, centerX + (Math.Cos(angle) * radius) - buttonWidth / 2);
+            Canvas.SetTop(button, centerY + (Math.Sin(angle) * radius) - buttonHeight / 2);
         }
 
         MaimaiButtonGuide.Visibility = Visibility.Visible;

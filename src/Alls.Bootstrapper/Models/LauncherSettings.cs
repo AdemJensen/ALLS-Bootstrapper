@@ -21,7 +21,7 @@ public enum DisplayLayoutMode
 public enum StartupMode { DefaultGame, Menu }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OperationKind { Command, Exit, Shutdown, Restart }
+public enum OperationKind { Command, Exit, Shutdown, Restart, UpdateAllGames }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum UpdateSourceKind { Http, Usb }
@@ -55,6 +55,7 @@ public sealed class LauncherSettings
     public List<GameSettings> Games { get; set; } = [GameSettings.CreateDefault()];
     public List<OperationSettings> Operations { get; set; } =
     [
+        OperationSettings.CreateUpdateAllGames(),
         OperationSettings.CreateShutdown(),
         OperationSettings.CreateRestart(),
         OperationSettings.CreateExit()
@@ -105,6 +106,7 @@ public sealed class GameSettings
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public DisplayLayoutMode? LayoutMode { get; set; }
+    public string Language { get; set; } = string.Empty;
     public LaunchSettings Launch { get; set; } = new();
     public ProcessMonitorSettings Monitor { get; set; } = new();
     public GameUpdateSettings Update { get; set; } = new();
@@ -138,6 +140,15 @@ public sealed class OperationSettings
     public LaunchSettings Command { get; set; } = new();
     public ConfirmationSettings Confirmation { get; set; } = new();
     public bool CloseAfterRun { get; set; }
+
+    public static OperationSettings CreateUpdateAllGames() => new()
+    {
+        Id = "update-all-games",
+        Title = "更新所有游戏程序",
+        Description = "依次检查并更新所有已启用更新的游戏",
+        Kind = OperationKind.UpdateAllGames,
+        Confirmation = new ConfirmationSettings { Enabled = true }
+    };
 
     public static OperationSettings CreateShutdown() => new()
     {

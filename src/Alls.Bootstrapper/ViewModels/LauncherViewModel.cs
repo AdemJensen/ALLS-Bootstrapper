@@ -74,6 +74,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private OperationSettings? pendingOperation;
     private string confirmationTitle = string.Empty;
     private string confirmationMessage = string.Empty;
+    private string activeGameLanguage = string.Empty;
     private bool isBusy = true;
     private bool bootSequenceActive;
     private bool started;
@@ -405,7 +406,9 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             }
             : operation.Confirmation.Title;
         ConfirmationMessage = string.IsNullOrWhiteSpace(operation.Confirmation.Message)
-            ? localization.Get("POWER_CONFIRM_MESSAGE")
+            ? operation.Kind == OperationKind.UpdateAllGames
+                ? localization.Get("UPDATE_ALL_CONFIRM_MESSAGE")
+                : localization.Get("POWER_CONFIRM_MESSAGE")
             : operation.Confirmation.Message;
         Screen = LauncherScreen.Confirmation;
     }
@@ -416,7 +419,6 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         {
             case CabinetInputAction.Up:
             case CabinetInputAction.Down:
-            case CabinetInputAction.SwitchList:
                 ConfirmationSelectedIndex = ConfirmationSelectedIndex == 0 ? 1 : 0;
                 break;
             case CabinetInputAction.Select:
@@ -440,6 +442,12 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         if (operation.Kind == OperationKind.Exit)
         {
             CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (operation.Kind == OperationKind.UpdateAllGames)
+        {
+            await UpdateAllGamesAsync();
             return;
         }
 
@@ -490,10 +498,51 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task UpdateAllGamesAsync()
+    {
+        var generation = BeginSession(out var token);
+        Screen = LauncherScreen.Boot;
+        StepLabel = "STEP 12";
+        Message = localization.Get("UPDATE_ALL_MESSAGE");
+        IsBusy = true;
+        bootSequenceActive = false;
+        input.Suspend();
+
+        try
+        {
+            var games = settings.Games.Where(game => game.Update.Enabled).ToList();
+            log.Info($"Update-all operation started for {games.Count} configured game(s).");
+            foreach (var game in games)
+            {
+                token.ThrowIfCancellationRequested();
+                _ = await updater.TryUpdateAsync(game, settings.UpdateSources, token);
+            }
+
+            if (IsCurrent(generation))
+            {
+                log.Info("Update-all operation completed.");
+                ShowMenuCore();
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            log.Info("Update-all operation cancelled.");
+        }
+        catch (Exception exception)
+        {
+            log.Error("Unexpected update-all failure. Returning to the operation menu.", exception);
+            if (IsCurrent(generation))
+            {
+                ShowMenuCore();
+            }
+        }
+    }
+
     private async Task RunGameAsync(GameSettings game)
     {
         var generation = BeginSession(out var token);
         ActiveLayoutMode = game.LayoutMode ?? settings.Display.LayoutMode;
+        activeGameLanguage = string.IsNullOrWhiteSpace(game.Language) ? settings.Language : game.Language;
         input.Resume();
         WindowVisibilityRequested?.Invoke(this, new WindowVisibilityEventArgs(true));
         Screen = LauncherScreen.Boot;
@@ -506,7 +555,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             if (game.Update.Enabled)
             {
                 StepLabel = "STEP 12";
-                Message = localization.Get("STEP_12_MESSAGE");
+                Message = localization.Get("STEP_12_MESSAGE", activeGameLanguage);
                 _ = await updater.TryUpdateAsync(game, settings.UpdateSources, token);
                 if (!IsCurrent(generation))
                 {
@@ -553,7 +602,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             }
 
             StepLabel = "STEP 30";
-            Message = localization.Get("STEP_30_MESSAGE");
+            Message = localization.Get("STEP_30_MESSAGE", activeGameLanguage);
             IsBusy = true;
             var ready = await monitor.WaitUntilReadyAsync(game.Monitor, token);
             if (!IsCurrent(generation))
@@ -624,7 +673,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         Screen = LauncherScreen.Boot;
         IsBusy = true;
         StepLabel = $"STEP {phase.Step:00}";
-        Message = localization.Get(phase.MessageKey);
+        Message = localization.Get(phase.MessageKey, activeGameLanguage);
     }
 
     private void ShowMenu()
