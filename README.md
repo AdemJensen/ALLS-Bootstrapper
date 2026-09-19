@@ -67,12 +67,59 @@ dotnet build ALLS.sln -c Release
 
 Bootstrapper 使用 HidSharp 读取 Raw HID，首次还原时需要从 NuGet 获取该包。
 
+### 合并发布两个完全自包含单文件（推荐）
+
+下面的 PowerShell 命令会将 Bootstrapper 和 Configurator 一起发布到
+`artifacts\ALLS-win-x64`，然后生成 `artifacts\ALLS-win-x64.zip`：
+
+```powershell
+$publishDir = Join-Path $PWD "artifacts\ALLS-win-x64"
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+New-Item $publishDir -ItemType Directory | Out-Null
+
+dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
+  -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans `
+  -p:DebugType=None -p:DebugSymbols=false `
+  -o $publishDir
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+dotnet publish src/Alls.Configurator/Alls.Configurator.csproj `
+  -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans `
+  -p:DebugType=None -p:DebugSymbols=false `
+  -o $publishDir
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Compress-Archive -Path "$publishDir\*" `
+  -DestinationPath "artifacts\ALLS-win-x64.zip" -Force
+```
+
+`PublishSingleFile` 将托管运行库嵌入 EXE，`IncludeNativeLibrariesForSelfExtract` 继续把 WPF
+原生运行库一并嵌入；启动时它们会自动解压到系统临时目录。最终发布目录只包含
+`ALLS.exe`、`ALLS.Configurator.exe`、`alls-launcher.json` 和 `Assets` 中的两项资源，
+目标机器无需安装 .NET，也无需保留散落的运行库 DLL。
+
+`EnableCompressionInSingleFile` 会压缩 EXE 内嵌的托管程序集，`SatelliteResourceLanguages`
+只保留英文、日文和简体中文框架资源。两个 EXE 仍各自包含完整运行时，第一次启动时会产生
+一次解压开销。项目没有启用 `PublishTrimmed`，因为 .NET 8 不支持或不建议对 WPF 程序进行
+裁剪，强行裁剪可能破坏 XAML、数据绑定和 JSON 反射访问。
+
+请从仓库根目录执行上述命令；它会先删除已有的
+`artifacts\ALLS-win-x64` 目录，避免旧版文件残留。
+
 ### 发布 Bootstrapper
 
 ```powershell
 dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
   -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans
 ```
 
 ### 发布 Configurator
@@ -80,11 +127,13 @@ dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
 ```powershell
 dotnet publish src/Alls.Configurator/Alls.Configurator.csproj `
   -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
+  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans
 ```
 
-WPF 的自包含单文件发布仍会在输出目录保留少量原生图形运行库。分发时请打包整个发布目录，
-不要只复制 `ALLS.Configurator.exe`。
+Bootstrapper 的 JSON 和 Assets 是外部内容文件；即使使用完全自包含单文件，也必须与
+`ALLS.exe` 一同分发。Configurator 本身可以仅分发单个 EXE。
 
 ## 快速开始
 

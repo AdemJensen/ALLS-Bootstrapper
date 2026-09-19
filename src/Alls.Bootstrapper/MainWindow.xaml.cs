@@ -46,6 +46,7 @@ public partial class MainWindow : Window
 
         InitializeComponent();
         DataContext = viewModel;
+        ConfigureWindow();
 
         Loaded += OnLoaded;
         SizeChanged += OnWindowSizeChanged;
@@ -58,7 +59,6 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        ConfigureWindow();
         ApplyDisplayLayout();
         RestoreLauncherForeground();
         input.Start();
@@ -72,6 +72,9 @@ public partial class MainWindow : Window
 
         if (display.Mode == WindowMode.Fullscreen)
         {
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            ShowInTaskbar = false;
             Left = 0;
             Top = 0;
             Width = SystemParameters.PrimaryScreenWidth;
@@ -80,6 +83,9 @@ public partial class MainWindow : Window
         }
         else
         {
+            WindowStyle = WindowStyle.SingleBorderWindow;
+            ResizeMode = ResizeMode.CanMinimize;
+            ShowInTaskbar = true;
             Width = display.Width;
             Height = display.Height;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
