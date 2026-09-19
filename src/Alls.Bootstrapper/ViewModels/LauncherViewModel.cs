@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using System.Windows.Media;
 using Alls.Bootstrapper.Models;
 using Alls.Bootstrapper.Services;
 
@@ -24,6 +25,14 @@ internal enum UpdateAllSection
 {
     Games,
     Return
+}
+
+internal enum UpdateStatusTone
+{
+    Neutral,
+    Notice,
+    Success,
+    Failure
 }
 
 internal sealed class WindowVisibilityEventArgs(bool visible) : EventArgs
@@ -56,10 +65,14 @@ internal sealed class MenuEntryViewModel
         new(operation.Title, operation.Description, null, operation);
 }
 
-internal sealed class GameUpdateItemViewModel(GameSettings game, string status) : ViewModelBase
+internal sealed class GameUpdateItemViewModel(
+    GameSettings game,
+    string status,
+    UpdateStatusTone tone) : ViewModelBase
 {
     private string status = status;
     private string details = string.Empty;
+    private Brush statusForeground = GetStatusBrush(tone);
 
     public GameSettings Game { get; } = game;
 
@@ -79,11 +92,26 @@ internal sealed class GameUpdateItemViewModel(GameSettings game, string status) 
         private set => SetProperty(ref details, value);
     }
 
-    public void Apply(string newStatus, string newDetails)
+    public Brush StatusForeground
+    {
+        get => statusForeground;
+        private set => SetProperty(ref statusForeground, value);
+    }
+
+    public void Apply(string newStatus, string newDetails, UpdateStatusTone newTone)
     {
         Status = newStatus;
         Details = newDetails;
+        StatusForeground = GetStatusBrush(newTone);
     }
+
+    private static Brush GetStatusBrush(UpdateStatusTone tone) => tone switch
+    {
+        UpdateStatusTone.Success => Brushes.ForestGreen,
+        UpdateStatusTone.Failure => Brushes.Crimson,
+        UpdateStatusTone.Notice => Brushes.DarkGoldenrod,
+        _ => Brushes.Gray
+    };
 }
 
 internal sealed class LauncherViewModel : ViewModelBase, IDisposable
@@ -661,7 +689,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         var generation = BeginSession(out var token);
         ActiveLayoutMode = settings.Display.LayoutMode;
         UpdateAllEntries = settings.Games
-            .Select(game => new GameUpdateItemViewModel(game, localization.Get("UPDATE_STATUS_WAITING")))
+            .Select(game => new GameUpdateItemViewModel(
+                game,
+                localization.Get("UPDATE_STATUS_WAITING"),
+                UpdateStatusTone.Notice))
             .ToList();
         selectedUpdateGameIndex = 0;
         updateAllSection = UpdateAllSection.Return;
@@ -684,7 +715,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                 try
                 {
                     var result = await updater.TryUpdateAsync(entry.Game, settings.UpdateSources, token);
-                    entry.Apply(GetUpdateStatus(result.Outcome), FormatUpdateDetails(result));
+                    entry.Apply(
+                        GetUpdateStatus(result.Outcome),
+                        FormatUpdateDetails(result),
+                        GetUpdateStatusTone(result.Outcome));
                     hadFailures |= result.Outcome == GameUpdateOutcome.Failed;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -697,7 +731,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                     log.Error($"Unexpected update failure for game '{entry.Game.Id}'.", exception);
                     entry.Apply(
                         localization.Get("UPDATE_STATUS_FAILED"),
-                        $"{localization.Get("UPDATE_DETAIL_OVERALL")} {localization.Get("UPDATE_STATUS_FAILED")}{Environment.NewLine}{Environment.NewLine}{exception}");
+                        $"{localization.Get("UPDATE_DETAIL_OVERALL")} {localization.Get("UPDATE_STATUS_FAILED")}{Environment.NewLine}{Environment.NewLine}{exception}",
+                        UpdateStatusTone.Failure);
                 }
             }
 
@@ -731,9 +766,18 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     {
         GameUpdateOutcome.UpdateDisabled => localization.Get("UPDATE_STATUS_DISABLED"),
         GameUpdateOutcome.NoSources => localization.Get("UPDATE_STATUS_NO_SOURCE"),
+        GameUpdateOutcome.UpdateDirectoryNotFound => localization.Get("UPDATE_STATUS_DIRECTORY_NOT_FOUND"),
         GameUpdateOutcome.UpToDate => localization.Get("UPDATE_STATUS_UP_TO_DATE"),
         GameUpdateOutcome.Completed => localization.Get("UPDATE_STATUS_COMPLETED"),
         _ => localization.Get("UPDATE_STATUS_FAILED")
+    };
+
+    private static UpdateStatusTone GetUpdateStatusTone(GameUpdateOutcome outcome) => outcome switch
+    {
+        GameUpdateOutcome.Completed => UpdateStatusTone.Success,
+        GameUpdateOutcome.Failed => UpdateStatusTone.Failure,
+        GameUpdateOutcome.UpdateDisabled => UpdateStatusTone.Neutral,
+        _ => UpdateStatusTone.Notice
     };
 
     private string FormatUpdateDetails(GameUpdateResult result)
@@ -774,6 +818,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         UpdateSourceOutcome.NotAttempted => localization.Get("UPDATE_SOURCE_NOT_ATTEMPTED"),
         UpdateSourceOutcome.Missing => localization.Get("UPDATE_SOURCE_MISSING"),
         UpdateSourceOutcome.Disabled => localization.Get("UPDATE_SOURCE_DISABLED"),
+        UpdateSourceOutcome.DirectoryNotFound => localization.Get("UPDATE_SOURCE_DIRECTORY_NOT_FOUND"),
         UpdateSourceOutcome.UpToDate => localization.Get("UPDATE_SOURCE_UP_TO_DATE"),
         UpdateSourceOutcome.Completed => localization.Get("UPDATE_SOURCE_COMPLETED"),
         _ => localization.Get("UPDATE_SOURCE_FAILED")

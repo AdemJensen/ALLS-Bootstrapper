@@ -40,6 +40,7 @@
     <sys:String x:Key="UPDATE_STATUS_WAITING">Waiting</sys:String>
     <sys:String x:Key="UPDATE_STATUS_DISABLED">Updates disabled</sys:String>
     <sys:String x:Key="UPDATE_STATUS_NO_SOURCE">No update source available</sys:String>
+    <sys:String x:Key="UPDATE_STATUS_DIRECTORY_NOT_FOUND">Game update directory not found</sys:String>
     <sys:String x:Key="UPDATE_STATUS_UP_TO_DATE">Already up to date</sys:String>
     <sys:String x:Key="UPDATE_STATUS_COMPLETED">Update complete</sys:String>
     <sys:String x:Key="UPDATE_STATUS_FAILED">Update failed</sys:String>
@@ -52,6 +53,7 @@
     <sys:String x:Key="UPDATE_SOURCE_NOT_ATTEMPTED">Not attempted</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_MISSING">Configuration not found</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_DISABLED">Source disabled</sys:String>
+    <sys:String x:Key="UPDATE_SOURCE_DIRECTORY_NOT_FOUND">No update directory for this game</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_UP_TO_DATE">Version matched; update skipped</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_COMPLETED">Update succeeded</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_FAILED">Failed; tried the next source</sys:String>

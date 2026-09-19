@@ -40,6 +40,7 @@
     <sys:String x:Key="UPDATE_STATUS_WAITING">等待中</sys:String>
     <sys:String x:Key="UPDATE_STATUS_DISABLED">未开启更新</sys:String>
     <sys:String x:Key="UPDATE_STATUS_NO_SOURCE">没有可用更新源</sys:String>
+    <sys:String x:Key="UPDATE_STATUS_DIRECTORY_NOT_FOUND">找不到对应的更新目录</sys:String>
     <sys:String x:Key="UPDATE_STATUS_UP_TO_DATE">版本已最新，无需更新</sys:String>
     <sys:String x:Key="UPDATE_STATUS_COMPLETED">已完成更新</sys:String>
     <sys:String x:Key="UPDATE_STATUS_FAILED">更新失败</sys:String>
@@ -52,6 +53,7 @@
     <sys:String x:Key="UPDATE_SOURCE_NOT_ATTEMPTED">未尝试</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_MISSING">配置不存在</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_DISABLED">更新源未启用</sys:String>
+    <sys:String x:Key="UPDATE_SOURCE_DIRECTORY_NOT_FOUND">找不到该游戏对应的更新目录</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_UP_TO_DATE">版本一致，已跳过更新</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_COMPLETED">更新成功</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_FAILED">更新失败，已尝试下一个来源</sys:String>

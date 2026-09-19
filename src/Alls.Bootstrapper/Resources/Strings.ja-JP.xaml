@@ -40,6 +40,7 @@
     <sys:String x:Key="UPDATE_STATUS_WAITING">待機中</sys:String>
     <sys:String x:Key="UPDATE_STATUS_DISABLED">更新は無効です</sys:String>
     <sys:String x:Key="UPDATE_STATUS_NO_SOURCE">利用可能な更新元がありません</sys:String>
+    <sys:String x:Key="UPDATE_STATUS_DIRECTORY_NOT_FOUND">対応する更新ディレクトリがありません</sys:String>
     <sys:String x:Key="UPDATE_STATUS_UP_TO_DATE">最新バージョンです</sys:String>
     <sys:String x:Key="UPDATE_STATUS_COMPLETED">更新完了</sys:String>
     <sys:String x:Key="UPDATE_STATUS_FAILED">更新失敗</sys:String>
@@ -52,6 +53,7 @@
     <sys:String x:Key="UPDATE_SOURCE_NOT_ATTEMPTED">未試行</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_MISSING">設定が見つかりません</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_DISABLED">更新元は無効です</sys:String>
+    <sys:String x:Key="UPDATE_SOURCE_DIRECTORY_NOT_FOUND">このゲームの更新ディレクトリがありません</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_UP_TO_DATE">同じバージョンのためスキップ</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_COMPLETED">更新成功</sys:String>
     <sys:String x:Key="UPDATE_SOURCE_FAILED">失敗したため次の更新元を試行</sys:String>

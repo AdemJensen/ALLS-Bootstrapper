@@ -343,7 +343,8 @@ public partial class MainWindow : Window
         var centerY = stageTop + stageSize / 2;
         var buttonWidth = Math.Clamp(stageSize * 0.205, 150, 232);
         var buttonHeight = Math.Clamp(stageSize * 0.072, 58, 82);
-        var radius = stageSize * 0.435;
+        // Place the outer edge of each radial button directly on the cabinet circle.
+        var radius = (stageSize - buttonHeight) / 2;
         var buttons = new (Grid Element, int Number)[]
         {
             (MaimaiGuideButton1, 1),

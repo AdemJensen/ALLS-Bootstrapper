@@ -12,6 +12,7 @@ internal enum GameUpdateOutcome
 {
     UpdateDisabled,
     NoSources,
+    UpdateDirectoryNotFound,
     UpToDate,
     Completed,
     Failed
@@ -22,6 +23,7 @@ internal enum UpdateSourceOutcome
     NotAttempted,
     Missing,
     Disabled,
+    DirectoryNotFound,
     UpToDate,
     Completed,
     Failed
@@ -69,6 +71,8 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
         var sourcesById = configuredSources.ToDictionary(source => source.Id, StringComparer.OrdinalIgnoreCase);
         var attempts = new List<UpdateSourceAttempt>();
         var attemptedEnabledSource = false;
+        var updateDirectoryNotFound = false;
+        var sourceFailed = false;
         for (var sourceIndex = 0; sourceIndex < configuredSourceIds.Count; sourceIndex++)
         {
             var sourceId = configuredSourceIds[sourceIndex];
@@ -138,8 +142,27 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
             {
                 throw;
             }
+            catch (DirectoryNotFoundException exception)
+            {
+                updateDirectoryNotFound = true;
+                attempts.Add(new UpdateSourceAttempt(
+                    source.Id,
+                    UpdateSourceOutcome.DirectoryNotFound,
+                    exception.Message));
+                log.Info($"No update directory for game '{game.Id}' in source '{source.Id}': {exception.Message}");
+            }
+            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
+            {
+                updateDirectoryNotFound = true;
+                attempts.Add(new UpdateSourceAttempt(
+                    source.Id,
+                    UpdateSourceOutcome.DirectoryNotFound,
+                    exception.Message));
+                log.Info($"No HTTP update directory for game '{game.Id}' in source '{source.Id}': {exception.Message}");
+            }
             catch (Exception exception)
             {
+                sourceFailed = true;
                 attempts.Add(new UpdateSourceAttempt(source.Id, UpdateSourceOutcome.Failed, exception.Message));
                 log.Error($"Game update source failed: {game.Id} from {source.Id}.", exception);
             }
@@ -152,10 +175,19 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
             }
         }
 
-        log.Error($"All configured update sources failed for game '{game.Id}'. Game startup will continue.");
-        return new GameUpdateResult(
-            attemptedEnabledSource ? GameUpdateOutcome.Failed : GameUpdateOutcome.NoSources,
-            attempts);
+        var outcome = sourceFailed
+            ? GameUpdateOutcome.Failed
+            : updateDirectoryNotFound
+                ? GameUpdateOutcome.UpdateDirectoryNotFound
+                : attemptedEnabledSource
+                    ? GameUpdateOutcome.Failed
+                    : GameUpdateOutcome.NoSources;
+        if (outcome == GameUpdateOutcome.Failed)
+        {
+            log.Error($"All configured update sources failed for game '{game.Id}'. Game startup will continue.");
+        }
+
+        return new GameUpdateResult(outcome, attempts);
     }
 
     private static void AppendNotAttemptedSources(
