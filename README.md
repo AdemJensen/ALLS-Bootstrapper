@@ -70,74 +70,42 @@ Bootstrapper 使用 HidSharp 读取 Raw HID，首次还原时需要从 NuGet 获
 
 ### 合并发布两个完全自包含单文件（推荐）
 
-以下命令会将 Bootstrapper 和 Configurator 一起发布到 `artifacts\ALLS-win-x64`，
-然后生成 `artifacts\ALLS-win-x64.zip`。
+根目录的 `Makefile` 会将两个项目发布到 `artifacts/ALLS-win-x64`，然后生成
+`artifacts/ALLS-win-x64.zip`。macOS 自带 `make`；Windows 需要 GNU Make，可通过
+Chocolatey、Scoop、MSYS2 或 Git for Windows 环境安装。
 
-#### Windows PowerShell
+自动选择当前平台：
 
-```powershell
-$publishDir = Join-Path $PWD "artifacts\ALLS-win-x64"
-if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
-New-Item $publishDir -ItemType Directory | Out-Null
-
-dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans `
-  -p:DebugType=None -p:DebugSymbols=false `
-  -o $publishDir
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-dotnet publish src/Alls.Configurator/Alls.Configurator.csproj `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans `
-  -p:DebugType=None -p:DebugSymbols=false `
-  -o $publishDir
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-Compress-Archive -Path "$publishDir\*" `
-  -DestinationPath "artifacts\ALLS-win-x64.zip" -Force
+```console
+make publish
 ```
 
-#### macOS（zsh/bash）
+也可以显式选择平台：
 
-macOS 需要安装 .NET 8 SDK，但不需要 Wine 或 Windows 虚拟机。项目文件已经启用 Windows
-交叉构建；从仓库根目录执行：
+```console
+# Windows：调用 PowerShell 与 Compress-Archive
+make publish-win
 
-```bash
-set -euo pipefail
-
-publish_dir="$PWD/artifacts/ALLS-win-x64"
-archive_path="$PWD/artifacts/ALLS-win-x64.zip"
-
-rm -rf -- "$publish_dir"
-rm -f -- "$archive_path"
-mkdir -p "$publish_dir"
-
-dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj \
-  -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true \
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans \
-  -p:DebugType=None -p:DebugSymbols=false \
-  -o "$publish_dir"
-
-dotnet publish src/Alls.Configurator/Alls.Configurator.csproj \
-  -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true \
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans \
-  -p:DebugType=None -p:DebugSymbols=false \
-  -o "$publish_dir"
-
-ditto -c -k --keepParent \
-  "$publish_dir" "$archive_path"
+# macOS：调用 bash 与系统自带的 ditto
+make publish-mac
 ```
 
-如果 `dotnet` 没有加入 `PATH`，请将上面两处 `dotnet` 替换为 SDK 可执行文件的绝对路径。
+如果 `dotnet` 没有加入 `PATH`，可以覆盖 `DOTNET`；也可以通过 `CONFIGURATION` 改变构建配置：
+
+```console
+# macOS 示例
+make publish-mac DOTNET=/private/tmp/alls-dotnet-sdk/dotnet
+
+# Windows PowerShell 示例
+make publish-win DOTNET="C:\Program Files\dotnet\dotnet.exe" CONFIGURATION=Release
+```
+
+其他目标：
+
+```console
+make build
+make help
+```
 
 `PublishSingleFile` 将托管运行库嵌入 EXE，`IncludeNativeLibrariesForSelfExtract` 继续把 WPF
 原生运行库一并嵌入；启动时它们会自动解压到系统临时目录。最终发布目录只包含
@@ -149,16 +117,14 @@ ditto -c -k --keepParent \
 一次解压开销。项目没有启用 `PublishTrimmed`，因为 .NET 8 不支持或不建议对 WPF 程序进行
 裁剪，强行裁剪可能破坏 XAML、数据绑定和 JSON 反射访问。
 
-请从仓库根目录执行上述命令；它会先删除已有的发布目录和 ZIP，避免旧版文件残留。
+请从仓库根目录执行 Make 目标；脚本会先删除已有的发布目录和 ZIP，避免旧版文件残留。
 
 ### 发布 Bootstrapper
 
 ```powershell
 dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
   -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans
+  -p:PublishSingleFile=true
 ```
 
 ### 发布 Configurator
@@ -166,9 +132,7 @@ dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
 ```powershell
 dotnet publish src/Alls.Configurator/Alls.Configurator.csproj `
   -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -p:SatelliteResourceLanguages=en%3Bja%3Bzh-Hans
+  -p:PublishSingleFile=true
 ```
 
 Bootstrapper 的 JSON 和 Assets 是外部内容文件；即使使用完全自包含单文件，也必须与
@@ -234,22 +198,26 @@ ALLS.exe --config D:\ALLS\alls-launcher.json
 ## 项目结构
 
 ```text
-src/
-├── Alls.Bootstrapper/
-│   ├── Assets/          Logo、加载 GIF 与应用图标
-│   ├── Controls/        GIF 逐帧播放控件
-│   ├── Infrastructure/ 命令行解析
-│   ├── Models/          JSON 配置与启动阶段模型
-│   ├── Resources/       主题和三语言文本
-│   ├── Services/        HID、监控、更新、启动、日志与配置服务
-│   ├── ViewModels/      启动、菜单、更新与错误状态机
-│   ├── App.xaml         应用初始化
-│   └── MainWindow.xaml  启动与操作界面
-└── Alls.Configurator/
-    ├── Infrastructure/ 枚举选项和列表文本转换
-    ├── Services/        JSON 读写、规范化与配置校验
-    ├── App.xaml         配置器初始化
-    └── MainWindow.xaml  分区配置界面
+ALLS/
+├── Directory.Build.props  两个项目共用的单文件发布参数
+├── Makefile               Windows/macOS 构建与发布入口
+├── scripts/               两个平台的发布和压缩脚本
+└── src/
+    ├── Alls.Bootstrapper/
+    │   ├── Assets/          Logo、加载 GIF 与应用图标
+    │   ├── Controls/        GIF 逐帧播放控件
+    │   ├── Infrastructure/ 命令行解析
+    │   ├── Models/          JSON 配置与启动阶段模型
+    │   ├── Resources/       主题和三语言文本
+    │   ├── Services/        HID、监控、更新、启动、日志与配置服务
+    │   ├── ViewModels/      启动、菜单、更新与错误状态机
+    │   ├── App.xaml         应用初始化
+    │   └── MainWindow.xaml  启动与操作界面
+    └── Alls.Configurator/
+        ├── Infrastructure/ 枚举选项和列表文本转换
+        ├── Services/        JSON 读写、规范化与配置校验
+        ├── App.xaml         配置器初始化
+        └── MainWindow.xaml  分区配置界面
 ```
 
 配置器在编译期链接 Bootstrapper 的配置模型源文件，两者共享同一套字段、枚举和默认值。

@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <!-- Shared publishing defaults for both WPF applications. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en;ja;zh-Hans</SatelliteResourceLanguages>
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+</Project>
