@@ -1,0 +1,58 @@
+{
+  "platformName": "ALLS HX2.1",
+  "language": "zh-CN",
+  "logoPath": "Assets/logo.png",
+  "loadingPath": "Assets/logomode_load.gif",
+  "autoCloseAfterSequence": true,
+  "display": {
+    "mode": "Fullscreen",
+    "width": 1280,
+    "height": 720,
+    "topmost": true,
+    "hideCursor": true,
+    "allowEscapeToExit": true
+  },
+  "launch": {
+    "enabled": true,
+    "file": null,
+    "candidates": [
+      "start.bat",
+      "启动.bat"
+    ],
+    "arguments": "",
+    "workingDirectory": ".",
+    "waitForExit": false,
+    "postLaunchDelayMs": 13000,
+    "closeWhenTargetMissing": false
+  },
+  "logging": {
+    "enabled": true,
+    "file": "Logs/alls-launcher.log"
+  },
+  "timeline": [
+    {
+      "step": 1,
+      "messageKey": "STEP_01_MESSAGE",
+      "durationMs": 2200,
+      "action": "Continue"
+    },
+    {
+      "step": 4,
+      "messageKey": "STEP_04_MESSAGE",
+      "durationMs": 2200,
+      "action": "Continue"
+    },
+    {
+      "step": 21,
+      "messageKey": "STEP_21_MESSAGE",
+      "durationMs": 2400,
+      "action": "Continue"
+    },
+    {
+      "step": 30,
+      "messageKey": "STEP_30_MESSAGE",
+      "durationMs": 1200,
+      "action": "Launch"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="STEP_01_MESSAGE">启动中</sys:String>
+    <sys:String x:Key="STEP_04_MESSAGE">网络设置中</sys:String>
+    <sys:String x:Key="STEP_10_MESSAGE">请连接安装工具</sys:String>
+    <sys:String x:Key="STEP_11_MESSAGE">检索安装服务器</sys:String>
+    <sys:String x:Key="STEP_12_MESSAGE">游戏程序安装中</sys:String>
+    <sys:String x:Key="STEP_13_MESSAGE">请替换光盘</sys:String>
+    <sys:String x:Key="STEP_21_MESSAGE">游戏程序准备中</sys:String>
+    <sys:String x:Key="STEP_30_MESSAGE">稍后启动游戏程序</sys:String>
+    <sys:String x:Key="STEP_31_MESSAGE">稍后重启</sys:String>
+    <sys:String x:Key="STEP_32_MESSAGE">稍后重启</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">找不到游戏启动程序</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_FAILED">游戏启动程序运行失败</sys:String>
+    <sys:String x:Key="UNEXPECTED_ERROR">启动组件发生异常</sys:String>
+</ResourceDictionary>

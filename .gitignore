@@ -1,0 +1,64 @@
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Visual Studio / VS Code / JetBrains
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# .NET build and publish output
+**/bin/
+**/obj/
+**/publish/
+artifacts/
+TestResults/
+*.nupkg
+*.snupkg
+*.pdb
+
+# NuGet restore state
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Native C/C++ build output
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+Win32/
+*.d
+*.o
+*.obj
+*.pch
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+*.tlog
+*.lastbuildstate
+*.res
+*.lib
+*.exp
+*.dll
+*.exe
+*.out
+*.app
+
+# Launcher runtime state
+Logs/
+alls-launcher.local.json
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~

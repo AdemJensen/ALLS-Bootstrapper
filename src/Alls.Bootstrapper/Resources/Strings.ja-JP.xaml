@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="STEP_01_MESSAGE">起動しています</sys:String>
+    <sys:String x:Key="STEP_04_MESSAGE">ネットワークの設定をしています</sys:String>
+    <sys:String x:Key="STEP_10_MESSAGE">インストールメディアを接続してください</sys:String>
+    <sys:String x:Key="STEP_11_MESSAGE">インストールサーバーを探索しています</sys:String>
+    <sys:String x:Key="STEP_12_MESSAGE">ゲームプログラムをインストールしています</sys:String>
+    <sys:String x:Key="STEP_13_MESSAGE">ディスクを入れ替えてください</sys:String>
+    <sys:String x:Key="STEP_21_MESSAGE">ゲームプログラムの起動準備中です</sys:String>
+    <sys:String x:Key="STEP_30_MESSAGE">まもなくゲームプログラムが起動します</sys:String>
+    <sys:String x:Key="STEP_31_MESSAGE">まもなく再起動します</sys:String>
+    <sys:String x:Key="STEP_32_MESSAGE">まもなく再起動します</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">ゲームプログラムが見つかりません</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_FAILED">ゲームプログラムを起動できません</sys:String>
+    <sys:String x:Key="UNEXPECTED_ERROR">予期せぬ問題が発生しました</sys:String>
+</ResourceDictionary>

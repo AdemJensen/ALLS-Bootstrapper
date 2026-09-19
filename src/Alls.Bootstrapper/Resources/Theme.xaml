@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="BootBackgroundBrush" Color="#FFFDFDFD" />
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FF111111" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FF2B2B2B" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="#FFD00018" />
+
+    <Style x:Key="PlatformNameTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo UI, Segoe UI" />
+        <Setter Property="FontSize" Value="34" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="StepTextStyle" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,2,0,0" />
+        <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo UI, Segoe UI" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="MessageTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo UI, Segoe UI" />
+        <Setter Property="FontSize" Value="25" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+    </Style>
+</ResourceDictionary>

@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="STEP_01_MESSAGE">Boot</sys:String>
+    <sys:String x:Key="STEP_04_MESSAGE">Setup For Network</sys:String>
+    <sys:String x:Key="STEP_10_MESSAGE">Wait For Installation</sys:String>
+    <sys:String x:Key="STEP_11_MESSAGE">Wait For Server</sys:String>
+    <sys:String x:Key="STEP_12_MESSAGE">Install Game Program</sys:String>
+    <sys:String x:Key="STEP_13_MESSAGE">Please Insert Disc No.</sys:String>
+    <sys:String x:Key="STEP_21_MESSAGE">Mount Game Program</sys:String>
+    <sys:String x:Key="STEP_30_MESSAGE">Game Program Ready</sys:String>
+    <sys:String x:Key="STEP_31_MESSAGE">Reboot System</sys:String>
+    <sys:String x:Key="STEP_32_MESSAGE">Reboot System</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">Game Program Not Found</sys:String>
+    <sys:String x:Key="LAUNCH_TARGET_FAILED">Game Program Could Not Start</sys:String>
+    <sys:String x:Key="UNEXPECTED_ERROR">Unexpected System Failure</sys:String>
+</ResourceDictionary>
