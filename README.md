@@ -13,9 +13,11 @@ SEGA IO4/ADX HID/NPro DX/Maimoller IO 机台输入、独立的启动脚本与游
 - 可选择启动时直接运行默认游戏，或进入“操作界面”。
 - 启动中按 1P/2P `SELECT` 进入操作界面。
 - 启动中按 4 号或 5 号键跳过前置阶段，显示最后一个 STEP 并立即启动游戏。
-- 操作界面使用 1 号键上移、4 号键下移、5 号键确认。
+- 操作界面使用 1 号键上移、4 号键下移、5 号键确认，2+7 组合键快速切换游戏/操作列表。
+- 游戏列表独立滚动，关机、重启等机台操作固定显示，并支持二次确认。
 - 每个游戏可单独配置启动脚本、参数、工作目录、STEP 时间线、等待进程和等待窗口。
-- 启动脚本完成后继续等待真正的游戏进程/窗口；游戏就绪后隐藏界面并留在后台守护。
+- 启动脚本完成后继续显示 STEP 30；游戏目标就绪并经过可配置延迟后才隐藏界面。
+- 支持从 HTTP 文件服务器或 U 盘按优先级自动更新游戏，更新失败不阻止游戏启动。
 - 指定进程结束或窗口消失后，按配置显示操作界面或错误页。
 - 内置 Chunithm、maimai DX、Ongeki、CardMaker 机台布局预设；每个游戏可单独选择。
 - 支持中文、英文和日文资源，支持窗口预览、日志与键盘调试。
@@ -52,6 +54,7 @@ dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
 | 操作界面上移 | 1 号 | `1`/↑/小键盘 8 |
 | 操作界面下移 | 4 号 | `4`/↓/小键盘 2 |
 | 操作界面确认 | 5 号 | `5`/Enter/Space |
+| 游戏/操作列表快速切换 | 同时按 2+7 号 | 同时按主键盘 `2`+`7` |
 | 退出启动器 | — | `Esc`（需允许） |
 
 命令行参数：
@@ -59,7 +62,7 @@ dotnet publish src/Alls.Bootstrapper/Alls.Bootstrapper.csproj `
 - `--config <path>`：使用指定 JSON 文件。
 - `--language zh-CN|en-US|ja-JP`：覆盖语言。
 - `--windowed`：覆盖为窗口模式。
-- `--preview`：不执行游戏或操作命令，适合界面调试。
+- `--preview`：不执行游戏、更新、电源操作或其他命令，适合界面调试。
 
 例如：
 
@@ -87,6 +90,7 @@ ALLS.exe --preview --windowed
 | `input` | IO4/HID 和键盘输入 |
 | `logging` | 日志设置 |
 | `timeline` | 所有游戏共用的默认 STEP 时间线 |
+| `updateSources` | HTTP/U 盘更新来源列表 |
 | `games` | 可从操作界面选择的游戏数组 |
 | `operations` | 可从操作界面执行的其他操作数组 |
 
@@ -98,6 +102,7 @@ ALLS.exe --preview --windowed
   "layoutMode": "MaimaiDx",
   "width": 1280,
   "height": 720,
+  "stepTransitionMs": 0,
   "topmost": true,
   "hideCursor": true,
   "allowEscapeToExit": true
@@ -119,7 +124,8 @@ ALLS.exe --preview --windowed
 `MaimaiDx`。竖屏预设会使用放大的 Logo 和状态文字，以补偿 1280×720 设计画布缩放到
 1080 像素宽度时产生的视觉缩小。窗口其余区域仍由白色背景覆盖，因此不会出现黑底中的
 横向白条。`topmost`、`hideCursor`、`allowEscapeToExit` 分别控制置顶、隐藏鼠标和允许
-`Esc` 退出。
+`Esc` 退出。`stepTransitionMs` 控制 STEP/消息切换时的淡入毫秒数；`0` 表示完全关闭
+渐变，也是默认值。
 
 ### startup：启动入口
 
@@ -223,7 +229,15 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
       "readyMode": "All",
       "exitMode": "AnyMissing",
       "startupTimeoutMs": 120000,
-      "pollIntervalMs": 500
+      "pollIntervalMs": 500,
+      "readyDelayMs": 5000
+    },
+    "update": {
+      "enabled": false,
+      "sourceIds": ["usb-main", "remote-main"],
+      "applyMode": "ReplaceExisting",
+      "targetDirectory": ".",
+      "versionFile": "ABU_VERSION"
     },
     "timeline": [],
     "onExit": "Menu",
@@ -242,6 +256,7 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 | `layoutMode` | 可选的机型布局预设；省略时继承 `display.layoutMode` |
 | `launch` | 实际执行的启动器、批处理或脚本；它可以与被监控的游戏完全不同 |
 | `monitor` | 真正游戏进程/窗口的就绪与退出判断 |
+| `update` | 此游戏的更新来源顺序、复制策略与目标目录 |
 | `timeline` | 此游戏独有的时间线；空数组表示使用顶层 `timeline` |
 | `onExit` | 游戏目标消失后显示 `Menu` 或 `Error` |
 | `exitErrorTitle` / `exitErrorMessage` | `onExit` 为 `Error` 时显示的内容 |
@@ -271,9 +286,10 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 - `AnyMissing`：任一已配置条件消失就返回，适合同时严格监视进程和窗口。
 - `AllMissing`：所有已配置条件都消失才返回，适合窗口会重建的游戏。
 
-`startupTimeoutMs` 是等待游戏目标出现的最长时间，超时进入错误页；
-`pollIntervalMs` 是检测间隔。至少配置一个进程或窗口条件，否则游戏会被立即视为就绪，
-而守护程序会一直留在后台直到程序被手动退出。
+`startupTimeoutMs` 是等待游戏目标出现的最长时间，超时进入错误页；`pollIntervalMs` 是
+检测间隔；`readyDelayMs` 是目标首次满足条件后继续显示 STEP 30 的时间。延迟结束后启动器
+才隐藏。至少配置一个进程或窗口条件，否则游戏会被立即视为就绪，而守护程序会一直留在
+后台直到程序被手动退出。
 
 添加第二个游戏只需在 `games` 数组追加对象，并给它不同的 `id`、`layoutMode`、
 `launch` 和 `monitor`。操作界面会自动按数组顺序列出。例如同一台电脑可以混合配置：
@@ -297,6 +313,97 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 ```
 
 以上是字段重点示例；实际对象仍需包含 `launch`、`monitor` 等配置。
+
+### updateSources 与游戏自动更新
+
+更新来源是顶层列表，每个来源由唯一 `id` 标识。HTTP 与 U 盘来源示例：
+
+```json
+"updateSources": [
+  {
+    "id": "remote-main",
+    "enabled": true,
+    "kind": "Http",
+    "baseUrl": "http://192.168.1.10:8000/",
+    "username": "sega",
+    "password": "password",
+    "path": "sega_game_updates",
+    "containsMultipleGames": true,
+    "requestTimeoutMs": 300000
+  },
+  {
+    "id": "usb-main",
+    "enabled": true,
+    "kind": "Usb",
+    "driveLetter": "F:",
+    "path": "sega_game_updates",
+    "containsMultipleGames": true
+  }
+]
+```
+
+| 字段 | 含义 |
+| --- | --- |
+| `kind` | `Http` 或 `Usb` |
+| `baseUrl` | HTTP 文件服务器根地址 |
+| `username` / `password` | 可选的 HTTP Basic Auth；留空表示不认证 |
+| `driveLetter` | U 盘盘符，可写 `F` 或 `F:` |
+| `path` | 服务器或 U 盘中的更新根目录 |
+| `containsMultipleGames` | `true` 时在根目录下继续寻找以 `games[].id` 命名的目录；`false` 时根目录内容直接属于该游戏 |
+| `requestTimeoutMs` | 每个 HTTP 请求的超时时间 |
+
+HTTP 服务器需要开启目录索引；启动器会解析常见的 Python `http.server`、Apache 和
+Nginx 风格链接并递归下载。Basic Auth 密码以明文保存在 JSON 中，应限制配置文件权限，
+并优先在非可信网络上使用 HTTPS。
+
+每个游戏通过 `update` 选择来源和行为：
+
+```json
+"update": {
+  "enabled": true,
+  "sourceIds": ["usb-main", "remote-main"],
+  "applyMode": "ReplaceExisting",
+  "targetDirectory": "Package/Sinmai_Data/StreamingAssets",
+  "versionFile": "ABU_VERSION"
+}
+```
+
+来源会按 `sourceIds` 顺序尝试，首个成功或版本一致的来源结束本次更新。所有来源都失败时
+只写入日志，游戏仍继续启动。`targetDirectory` 的相对路径以该游戏的
+`launch.workingDirectory` 为基准，也可以填写绝对路径。
+
+`applyMode` 支持：
+
+- `FullReplace`：删除目标目录中的原内容，再完整复制来源。为了安全，不允许目标为磁盘根目录。
+- `ReplaceExisting`：复制来源中的全部文件和目录；覆盖同名文件，但保留来源中不存在的本地项。
+- `AddNewOnly`：只复制目标中尚不存在的文件，不覆盖任何现有文件。
+
+`FullReplace` 和 `ReplaceExisting` 会检查来源根目录中的 `versionFile`。来源和目标都存在
+该文件且去除首尾空白后的内容一致时，本次更新直接视为成功并跳过复制；来源没有版本文件
+或版本不一致时正常更新。`AddNewOnly` 不进行版本短路。
+
+例如 `maimai-dx-magical` 的目标为
+`D:\maimai\sdez170\Package\Sinmai_Data\Streaming_Assets`，U 盘来源为
+`F:\sega_game_updates\maimai-dx-magical`，可配置为：
+
+```json
+{
+  "id": "maimai-dx-magical",
+  "launch": {
+    "workingDirectory": "D:/maimai/sdez170"
+  },
+  "update": {
+    "enabled": true,
+    "sourceIds": ["usb-main"],
+    "applyMode": "ReplaceExisting",
+    "targetDirectory": "Package/Sinmai_Data/Streaming_Assets",
+    "versionFile": "ABU_VERSION"
+  }
+}
+```
+
+若来源含 `A001`、`A002`、`A003` 和 `ABU_VERSION`，本地含 `A000`、`A001`、`A002`，
+版本不一致时会覆盖 `A001`、`A002` 和版本文件，新增 `A003`，并保留本地 `A000`。
 
 ### timeline：STEP 时间线
 
@@ -327,30 +434,38 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 `STEP_30_MESSAGE`、`STEP_31_MESSAGE` 和 `STEP_32_MESSAGE`。4 号/5 号跳过功能会定位
 时间线中最后一个 `Launch` 阶段。
 
-### operations：其他操作
+### operations：机台操作
 
 ```json
 "operations": [
   {
-    "id": "exit",
-    "title": "退出启动器",
-    "description": "关闭 ALLS Bootstrapper",
-    "kind": "Exit",
+    "id": "shutdown",
+    "title": "关闭机台电源",
+    "description": "关闭 Windows 与机台电源",
+    "kind": "Shutdown",
     "command": {
-      "enabled": false,
+      "enabled": true,
       "file": null,
       "candidates": [],
       "arguments": "",
       "workingDirectory": ".",
       "waitForExit": false
     },
+    "confirmation": {
+      "enabled": true,
+      "title": "关闭机台电源？",
+      "message": "该操作无法撤销，请确认。"
+    },
     "closeAfterRun": false
   }
 ]
 ```
 
-`kind` 为 `Exit` 时直接退出，忽略 `command`；为 `Command` 时按与游戏 `launch` 相同
-的规则执行命令。`closeAfterRun` 决定命令成功启动后是否关闭 ALLS，否则返回操作界面。
+`kind` 支持 `Shutdown`、`Restart`、`Exit` 和 `Command`。前两项调用 Windows 系统电源
+操作；`Exit` 只关闭启动器；`Command` 按与游戏 `launch` 相同的规则执行命令。
+`confirmation.enabled` 决定是否显示二次确认，`title`、`message` 留空时使用当前语言的
+默认文字，也可自行覆盖。确认页默认选中“取消”，使用 1/4 切换、5 确认、SELECT 取消。
+`closeAfterRun` 决定普通命令成功启动后是否关闭 ALLS，否则返回操作界面。
 
 ### logging：日志
 
@@ -369,12 +484,14 @@ Maimoller 的 1P 和 2P 使用相同 VID/PID。请分别保留两项配置并将
 ```text
 默认游戏或操作界面
         ↓ 选择游戏
+按 sourceIds 尝试自动更新（失败仍继续）
+        ↓
 播放该游戏的 STEP 时间线（4/5 可跳至 Launch）
         ↓
 运行 launch 中的批处理/程序
         ↓
-等待 monitor 中真正的游戏进程/窗口
-        ↓ 就绪
+保持 STEP 30，等待 monitor 中真正的游戏进程/窗口
+        ↓ 就绪并等待 readyDelayMs
 隐藏界面，在后台守护
         ↓ 进程结束或窗口消失
 按 onExit 显示操作界面或错误页

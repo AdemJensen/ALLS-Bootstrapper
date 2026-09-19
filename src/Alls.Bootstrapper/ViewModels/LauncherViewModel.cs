@@ -8,7 +8,14 @@ internal enum LauncherScreen
 {
     Boot,
     Menu,
+    Confirmation,
     Error
+}
+
+internal enum MenuSection
+{
+    Games,
+    Operations
 }
 
 internal sealed class WindowVisibilityEventArgs(bool visible) : EventArgs
@@ -48,6 +55,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private readonly BootSequenceService sequence;
     private readonly ProcessLauncher launcher;
     private readonly TargetMonitorService monitor;
+    private readonly GameUpdateService updater;
+    private readonly MachinePowerService machinePower;
     private readonly IInputService input;
     private readonly ILogService log;
     private readonly CancellationTokenSource lifetime = new();
@@ -58,7 +67,13 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private string message = string.Empty;
     private string errorTitle = string.Empty;
     private string errorMessage = string.Empty;
-    private int selectedIndex;
+    private int selectedGameIndex;
+    private int selectedOperationIndex;
+    private int confirmationSelectedIndex;
+    private MenuSection menuSection = MenuSection.Games;
+    private OperationSettings? pendingOperation;
+    private string confirmationTitle = string.Empty;
+    private string confirmationMessage = string.Empty;
     private bool isBusy = true;
     private bool bootSequenceActive;
     private bool started;
@@ -71,6 +86,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         BootSequenceService sequence,
         ProcessLauncher launcher,
         TargetMonitorService monitor,
+        GameUpdateService updater,
+        MachinePowerService machinePower,
         IInputService input,
         ILogService log)
     {
@@ -79,6 +96,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         this.sequence = sequence;
         this.launcher = launcher;
         this.monitor = monitor;
+        this.updater = updater;
+        this.machinePower = machinePower;
         this.input = input;
         this.log = log;
         activeLayoutMode = settings.Display.LayoutMode;
@@ -86,9 +105,9 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         PlatformName = settings.PlatformName;
         LogoPath = ResolveAssetPath(settings.LogoPath);
         LoadingPath = ResolveAssetPath(settings.LoadingPath);
-        MenuEntries = settings.Games.Select(MenuEntryViewModel.ForGame)
-            .Concat(settings.Operations.Select(MenuEntryViewModel.ForOperation))
-            .ToList();
+        GameEntries = settings.Games.Select(MenuEntryViewModel.ForGame).ToList();
+        OperationEntries = settings.Operations.Select(MenuEntryViewModel.ForOperation).ToList();
+        ConfirmationChoices = [ConfirmationCancelText, ConfirmationAcceptText];
     }
 
     public event EventHandler? CloseRequested;
@@ -101,15 +120,29 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     public string LoadingPath { get; }
 
-    public IReadOnlyList<MenuEntryViewModel> MenuEntries { get; }
+    public IReadOnlyList<MenuEntryViewModel> GameEntries { get; }
+
+    public IReadOnlyList<MenuEntryViewModel> OperationEntries { get; }
+
+    public IReadOnlyList<string> ConfirmationChoices { get; }
 
     public string MenuTitle => localization.Get("OPERATION_MENU_TITLE");
 
     public string MenuHelp => localization.Get("OPERATION_MENU_HELP");
 
+    public string GameListTitle => localization.Get("GAME_LIST_TITLE");
+
+    public string OperationListTitle => localization.Get("MACHINE_OPERATION_LIST_TITLE");
+
+    public string ConfirmationCancelText => localization.Get("CONFIRM_CANCEL");
+
+    public string ConfirmationAcceptText => localization.Get("CONFIRM_ACCEPT");
+
     public bool IsBootVisible => Screen == LauncherScreen.Boot;
 
     public bool IsMenuVisible => Screen == LauncherScreen.Menu;
+
+    public bool IsConfirmationVisible => Screen == LauncherScreen.Confirmation;
 
     public bool IsErrorVisible => Screen == LauncherScreen.Error;
 
@@ -131,6 +164,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
             RaisePropertyChanged(nameof(IsBootVisible));
             RaisePropertyChanged(nameof(IsMenuVisible));
+            RaisePropertyChanged(nameof(IsConfirmationVisible));
             RaisePropertyChanged(nameof(IsErrorVisible));
         }
     }
@@ -159,10 +193,26 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref errorMessage, value);
     }
 
-    public int SelectedIndex
+    public int SelectedGameIndex => menuSection == MenuSection.Games ? selectedGameIndex : -1;
+
+    public int SelectedOperationIndex => menuSection == MenuSection.Operations ? selectedOperationIndex : -1;
+
+    public int ConfirmationSelectedIndex
     {
-        get => selectedIndex;
-        private set => SetProperty(ref selectedIndex, value);
+        get => confirmationSelectedIndex;
+        private set => SetProperty(ref confirmationSelectedIndex, value);
+    }
+
+    public string ConfirmationTitle
+    {
+        get => confirmationTitle;
+        private set => SetProperty(ref confirmationTitle, value);
+    }
+
+    public string ConfirmationMessage
+    {
+        get => confirmationMessage;
+        private set => SetProperty(ref confirmationMessage, value);
     }
 
     public bool IsBusy
@@ -216,6 +266,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                 HandleMenuInput(action);
                 break;
 
+            case LauncherScreen.Confirmation:
+                HandleConfirmationInput(action);
+                break;
+
             case LauncherScreen.Error when action is CabinetInputAction.Select or CabinetInputAction.Confirm:
                 ShowMenu();
                 break;
@@ -224,7 +278,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     private void HandleMenuInput(CabinetInputAction action)
     {
-        if (MenuEntries.Count == 0)
+        if (GameEntries.Count == 0 && OperationEntries.Count == 0)
         {
             return;
         }
@@ -232,15 +286,88 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         switch (action)
         {
             case CabinetInputAction.Up:
-                SelectedIndex = (SelectedIndex - 1 + MenuEntries.Count) % MenuEntries.Count;
+                MoveMenuSelection(-1);
                 break;
             case CabinetInputAction.Down:
-                SelectedIndex = (SelectedIndex + 1) % MenuEntries.Count;
+                MoveMenuSelection(1);
+                break;
+            case CabinetInputAction.SwitchList:
+                SwitchMenuSection();
                 break;
             case CabinetInputAction.Confirm:
-                _ = ExecuteMenuEntryAsync(MenuEntries[SelectedIndex]);
+                var entry = menuSection == MenuSection.Games
+                    ? GameEntries.ElementAtOrDefault(selectedGameIndex)
+                    : OperationEntries.ElementAtOrDefault(selectedOperationIndex);
+                if (entry is not null)
+                {
+                    _ = ExecuteMenuEntryAsync(entry);
+                }
+
                 break;
         }
+    }
+
+    private void MoveMenuSelection(int direction)
+    {
+        if (menuSection == MenuSection.Games && GameEntries.Count > 0)
+        {
+            if (direction < 0 && selectedGameIndex > 0)
+            {
+                selectedGameIndex--;
+                RaisePropertyChanged(nameof(SelectedGameIndex));
+            }
+            else if (direction > 0 && selectedGameIndex < GameEntries.Count - 1)
+            {
+                selectedGameIndex++;
+                RaisePropertyChanged(nameof(SelectedGameIndex));
+            }
+            else if (OperationEntries.Count > 0)
+            {
+                selectedOperationIndex = direction > 0 ? 0 : OperationEntries.Count - 1;
+                SetMenuSection(MenuSection.Operations);
+            }
+
+            return;
+        }
+
+        if (OperationEntries.Count > 0)
+        {
+            if (direction < 0 && selectedOperationIndex > 0)
+            {
+                selectedOperationIndex--;
+                RaisePropertyChanged(nameof(SelectedOperationIndex));
+            }
+            else if (direction > 0 && selectedOperationIndex < OperationEntries.Count - 1)
+            {
+                selectedOperationIndex++;
+                RaisePropertyChanged(nameof(SelectedOperationIndex));
+            }
+            else if (GameEntries.Count > 0)
+            {
+                selectedGameIndex = direction > 0 ? 0 : GameEntries.Count - 1;
+                SetMenuSection(MenuSection.Games);
+            }
+        }
+    }
+
+    private void SwitchMenuSection()
+    {
+        if (GameEntries.Count > 0 && OperationEntries.Count > 0)
+        {
+            SetMenuSection(menuSection == MenuSection.Games ? MenuSection.Operations : MenuSection.Games);
+        }
+    }
+
+    private void SetMenuSection(MenuSection value)
+    {
+        if (menuSection == value)
+        {
+            return;
+        }
+
+        menuSection = value;
+        RaisePropertyChanged(nameof(SelectedGameIndex));
+        RaisePropertyChanged(nameof(SelectedOperationIndex));
     }
 
     private async Task ExecuteMenuEntryAsync(MenuEntryViewModel entry)
@@ -256,18 +383,93 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (entry.Operation.Kind == OperationKind.Exit)
+        if (entry.Operation.Confirmation.Enabled)
+        {
+            ShowConfirmation(entry.Operation);
+            return;
+        }
+
+        await ExecuteOperationAsync(entry.Operation);
+    }
+
+    private void ShowConfirmation(OperationSettings operation)
+    {
+        pendingOperation = operation;
+        ConfirmationSelectedIndex = 0;
+        ConfirmationTitle = string.IsNullOrWhiteSpace(operation.Confirmation.Title)
+            ? operation.Kind switch
+            {
+                OperationKind.Shutdown => localization.Get("SHUTDOWN_CONFIRM_TITLE"),
+                OperationKind.Restart => localization.Get("RESTART_CONFIRM_TITLE"),
+                _ => operation.Title
+            }
+            : operation.Confirmation.Title;
+        ConfirmationMessage = string.IsNullOrWhiteSpace(operation.Confirmation.Message)
+            ? localization.Get("POWER_CONFIRM_MESSAGE")
+            : operation.Confirmation.Message;
+        Screen = LauncherScreen.Confirmation;
+    }
+
+    private void HandleConfirmationInput(CabinetInputAction action)
+    {
+        switch (action)
+        {
+            case CabinetInputAction.Up:
+            case CabinetInputAction.Down:
+            case CabinetInputAction.SwitchList:
+                ConfirmationSelectedIndex = ConfirmationSelectedIndex == 0 ? 1 : 0;
+                break;
+            case CabinetInputAction.Select:
+                pendingOperation = null;
+                ShowMenuCore();
+                break;
+            case CabinetInputAction.Confirm when ConfirmationSelectedIndex == 0:
+                pendingOperation = null;
+                ShowMenuCore();
+                break;
+            case CabinetInputAction.Confirm when pendingOperation is not null:
+                var operation = pendingOperation;
+                pendingOperation = null;
+                _ = ExecuteOperationAsync(operation);
+                break;
+        }
+    }
+
+    private async Task ExecuteOperationAsync(OperationSettings operation)
+    {
+        if (operation.Kind == OperationKind.Exit)
         {
             CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        if (operation.Kind is OperationKind.Shutdown or OperationKind.Restart)
+        {
+            if (!operation.Command.Enabled)
+            {
+                log.Info($"Machine power action skipped because preview mode is active: {operation.Kind}.");
+                ShowMenuCore();
+                return;
+            }
+
+            if (machinePower.Execute(operation.Kind))
+            {
+                CloseRequested?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                ShowError("ERROR 9005", localization.Get("POWER_ACTION_FAILED"));
+            }
+
             return;
         }
 
         var generation = BeginSession(out var token);
         Screen = LauncherScreen.Boot;
         StepLabel = "OPERATION";
-        Message = entry.Operation.Title;
+        Message = operation.Title;
         IsBusy = true;
-        var result = await launcher.LaunchAsync(entry.Operation.Command, token);
+        var result = await launcher.LaunchAsync(operation.Command, token);
         if (!IsCurrent(generation))
         {
             return;
@@ -278,7 +480,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         {
             ShowError("ERROR 9003", result.Error ?? localization.Get("LAUNCH_TARGET_FAILED"));
         }
-        else if (entry.Operation.CloseAfterRun)
+        else if (operation.CloseAfterRun)
         {
             CloseRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -296,11 +498,23 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         WindowVisibilityRequested?.Invoke(this, new WindowVisibilityEventArgs(true));
         Screen = LauncherScreen.Boot;
         IsBusy = true;
-        bootSequenceActive = true;
+        bootSequenceActive = false;
         bootControl = new BootSequenceControl();
 
         try
         {
+            if (game.Update.Enabled)
+            {
+                StepLabel = "STEP 12";
+                Message = localization.Get("STEP_12_MESSAGE");
+                _ = await updater.TryUpdateAsync(game, settings.UpdateSources, token);
+                if (!IsCurrent(generation))
+                {
+                    return;
+                }
+            }
+
+            bootSequenceActive = true;
             var timeline = game.Timeline.Count > 0 ? game.Timeline : settings.Timeline;
             var result = await sequence.RunAsync(
                 timeline,
@@ -338,8 +552,8 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                     break;
             }
 
-            StepLabel = "GAME";
-            Message = localization.Get("WAITING_FOR_GAME");
+            StepLabel = "STEP 30";
+            Message = localization.Get("STEP_30_MESSAGE");
             IsBusy = true;
             var ready = await monitor.WaitUntilReadyAsync(game.Monitor, token);
             if (!IsCurrent(generation))
@@ -351,6 +565,16 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             {
                 ShowError("ERROR 9004", ready.Error ?? localization.Get("GAME_START_TIMEOUT"));
                 return;
+            }
+
+            if (game.Monitor.ReadyDelayMs > 0)
+            {
+                log.Info($"Game target ready; waiting {game.Monitor.ReadyDelayMs} ms before hiding the boot screen.");
+                await Task.Delay(game.Monitor.ReadyDelayMs, token);
+                if (!IsCurrent(generation))
+                {
+                    return;
+                }
             }
 
             IsBusy = false;
@@ -418,10 +642,28 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         bootSequenceActive = false;
         IsBusy = false;
         Screen = LauncherScreen.Menu;
-        if (SelectedIndex >= MenuEntries.Count)
+        pendingOperation = null;
+        if (selectedGameIndex >= GameEntries.Count)
         {
-            SelectedIndex = 0;
+            selectedGameIndex = 0;
         }
+
+        if (selectedOperationIndex >= OperationEntries.Count)
+        {
+            selectedOperationIndex = 0;
+        }
+
+        if (menuSection == MenuSection.Games && GameEntries.Count == 0)
+        {
+            menuSection = MenuSection.Operations;
+        }
+        else if (menuSection == MenuSection.Operations && OperationEntries.Count == 0)
+        {
+            menuSection = MenuSection.Games;
+        }
+
+        RaisePropertyChanged(nameof(SelectedGameIndex));
+        RaisePropertyChanged(nameof(SelectedOperationIndex));
     }
 
     private void ShowError(string title, string errorMessage)
@@ -455,6 +697,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         lifetime.Cancel();
         session?.Cancel();
         session?.Dispose();
+        updater.Dispose();
         lifetime.Dispose();
     }
 }

@@ -28,6 +28,8 @@ public partial class App : Application
             var launcher = new ProcessLauncher(logger);
             var sequence = new BootSequenceService(launcher, logger);
             var monitor = new TargetMonitorService(logger);
+            var updater = new GameUpdateService(logger);
+            var machinePower = new MachinePowerService(logger);
             var input = new MaimaiHidInputService(settings.Input, logger);
             var viewModel = new LauncherViewModel(
                 settings,
@@ -35,6 +37,8 @@ public partial class App : Application
                 sequence,
                 launcher,
                 monitor,
+                updater,
+                machinePower,
                 input,
                 logger);
             var window = new MainWindow(settings.Display, settings.Input, viewModel, input, logger);

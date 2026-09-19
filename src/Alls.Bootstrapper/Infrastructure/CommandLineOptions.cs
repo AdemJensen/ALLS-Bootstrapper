@@ -54,6 +54,7 @@ internal sealed record CommandLineOptions(
             foreach (var game in settings.Games)
             {
                 game.Launch.Enabled = false;
+                game.Update.Enabled = false;
             }
 
             foreach (var operation in settings.Operations)

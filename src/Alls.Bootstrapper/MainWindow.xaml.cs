@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Alls.Bootstrapper.Models;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private readonly IInputService input;
     private readonly ILogService log;
     private bool isClosing;
+    private bool keyboardSwitchChordActive;
 
     internal MainWindow(
         DisplaySettings display,
@@ -92,6 +94,7 @@ public partial class MainWindow : Window
         var isPortrait = height > width;
         var layoutMode = ResolveLayoutMode(viewModel.ActiveLayoutMode, isPortrait);
         ApplyBootVisualMetrics(layoutMode, isPortrait);
+        UpdateMaimaiButtonGuide(layoutMode, isPortrait, width, height);
 
         if (layoutMode == DisplayLayoutMode.Chunithm)
         {
@@ -216,6 +219,19 @@ public partial class MainWindow : Window
             return;
         }
 
+        var switchChordPressed = Keyboard.IsKeyDown(Key.D2) && Keyboard.IsKeyDown(Key.D7);
+        if (switchChordPressed)
+        {
+            if (!keyboardSwitchChordActive)
+            {
+                keyboardSwitchChordActive = true;
+                viewModel.HandleInput(CabinetInputAction.SwitchList);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         var action = e.Key switch
         {
             Key.D1 or Key.NumPad8 or Key.Up => CabinetInputAction.Up,
@@ -231,6 +247,14 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnKeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.D2 or Key.D7)
+        {
+            keyboardSwitchChordActive = Keyboard.IsKeyDown(Key.D2) && Keyboard.IsKeyDown(Key.D7);
+        }
+    }
+
     private void OnCabinetButtonPressed(object? sender, CabinetInputEventArgs e)
     {
         Dispatcher.BeginInvoke(() =>
@@ -242,17 +266,27 @@ public partial class MainWindow : Window
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LauncherViewModel.ActiveLayoutMode))
+        if (e.PropertyName is nameof(LauncherViewModel.ActiveLayoutMode)
+            or nameof(LauncherViewModel.Screen)
+            or nameof(LauncherViewModel.IsMenuVisible))
         {
             ApplyDisplayLayout();
             return;
         }
 
-        if (e.PropertyName == nameof(LauncherViewModel.SelectedIndex)
-            && viewModel.SelectedIndex >= 0
-            && viewModel.SelectedIndex < viewModel.MenuEntries.Count)
+        if (e.PropertyName == nameof(LauncherViewModel.SelectedGameIndex)
+            && viewModel.SelectedGameIndex >= 0
+            && viewModel.SelectedGameIndex < viewModel.GameEntries.Count)
         {
-            GameMenu.ScrollIntoView(viewModel.MenuEntries[viewModel.SelectedIndex]);
+            GameMenu.ScrollIntoView(viewModel.GameEntries[viewModel.SelectedGameIndex]);
+            return;
+        }
+
+        if (e.PropertyName == nameof(LauncherViewModel.SelectedOperationIndex)
+            && viewModel.SelectedOperationIndex >= 0
+            && viewModel.SelectedOperationIndex < viewModel.OperationEntries.Count)
+        {
+            OperationMenu.ScrollIntoView(viewModel.OperationEntries[viewModel.SelectedOperationIndex]);
             return;
         }
 
@@ -261,14 +295,71 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (display.StepTransitionMs <= 0)
+        {
+            StatusPanel.BeginAnimation(OpacityProperty, null);
+            StatusPanel.Opacity = 1;
+            return;
+        }
+
         var animation = new DoubleAnimation
         {
             From = 0.25,
             To = 1,
-            Duration = TimeSpan.FromMilliseconds(220),
+            Duration = TimeSpan.FromMilliseconds(display.StepTransitionMs),
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
         };
         StatusPanel.BeginAnimation(OpacityProperty, animation);
+    }
+
+    private void UpdateMaimaiButtonGuide(
+        DisplayLayoutMode layoutMode,
+        bool isPortrait,
+        double width,
+        double height)
+    {
+        if (layoutMode != DisplayLayoutMode.MaimaiDx || !isPortrait || !viewModel.IsMenuVisible)
+        {
+            MaimaiButtonGuide.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var stageSize = Math.Min(width, height * 0.75);
+        var stageTop = height - stageSize - (height * 0.015);
+        var centerX = width / 2;
+        var centerY = stageTop + stageSize / 2;
+        var diameter = Math.Clamp(stageSize * 0.09, 64, 104);
+        var radius = stageSize * 0.445;
+        var buttons = new Border[]
+        {
+            MaimaiGuideButton1,
+            MaimaiGuideButton2,
+            MaimaiGuideButton3,
+            MaimaiGuideButton4,
+            MaimaiGuideButton5,
+            MaimaiGuideButton6,
+            MaimaiGuideButton7,
+            MaimaiGuideButton8
+        };
+
+        MaimaiButtonGuide.Width = width;
+        MaimaiButtonGuide.Height = height;
+        for (var index = 0; index < buttons.Length; index++)
+        {
+            var angle = (-67.5 + (index * 45)) * Math.PI / 180;
+            var button = buttons[index];
+            button.Width = diameter;
+            button.Height = diameter;
+            if (button.Child is TextBlock label)
+            {
+                label.FontSize = diameter * 0.17;
+            }
+
+            Canvas.SetLeft(button, centerX + (Math.Cos(angle) * radius) - diameter / 2);
+            Canvas.SetTop(button, centerY + (Math.Sin(angle) * radius) - diameter / 2);
+        }
+
+        MaimaiButtonGuide.Visibility = Visibility.Visible;
     }
 
     private void OnWindowVisibilityRequested(object? sender, WindowVisibilityEventArgs e)

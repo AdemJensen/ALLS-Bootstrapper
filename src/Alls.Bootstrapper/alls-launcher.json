@@ -8,6 +8,7 @@
     "layoutMode": "MaimaiDx",
     "width": 1280,
     "height": 720,
+    "stepTransitionMs": 0,
     "topmost": true,
     "hideCursor": true,
     "allowEscapeToExit": true
@@ -126,6 +127,28 @@
       "action": "Launch"
     }
   ],
+  "updateSources": [
+    {
+      "id": "remote-main",
+      "enabled": false,
+      "kind": "Http",
+      "baseUrl": "http://192.168.1.10:8000/",
+      "username": "",
+      "password": "",
+      "path": "sega_game_updates",
+      "containsMultipleGames": true,
+      "requestTimeoutMs": 300000
+    },
+    {
+      "id": "usb-main",
+      "enabled": false,
+      "kind": "Usb",
+      "driveLetter": "F:",
+      "path": "sega_game_updates",
+      "containsMultipleGames": true,
+      "requestTimeoutMs": 300000
+    }
+  ],
   "games": [
     {
       "id": "maimai-dx",
@@ -151,7 +174,15 @@
         "readyMode": "All",
         "exitMode": "AnyMissing",
         "startupTimeoutMs": 120000,
-        "pollIntervalMs": 500
+        "pollIntervalMs": 500,
+        "readyDelayMs": 5000
+      },
+      "update": {
+        "enabled": false,
+        "sourceIds": ["usb-main", "remote-main"],
+        "applyMode": "ReplaceExisting",
+        "targetDirectory": ".",
+        "versionFile": "ABU_VERSION"
       },
       "timeline": [],
       "onExit": "Menu",
@@ -160,6 +191,46 @@
     }
   ],
   "operations": [
+    {
+      "id": "shutdown",
+      "title": "关闭机台电源",
+      "description": "关闭 Windows 与机台电源",
+      "kind": "Shutdown",
+      "command": {
+        "enabled": true,
+        "file": null,
+        "candidates": [],
+        "arguments": "",
+        "workingDirectory": ".",
+        "waitForExit": false
+      },
+      "confirmation": {
+        "enabled": true,
+        "title": "",
+        "message": ""
+      },
+      "closeAfterRun": false
+    },
+    {
+      "id": "restart",
+      "title": "重新启动机台",
+      "description": "重新启动 Windows",
+      "kind": "Restart",
+      "command": {
+        "enabled": true,
+        "file": null,
+        "candidates": [],
+        "arguments": "",
+        "workingDirectory": ".",
+        "waitForExit": false
+      },
+      "confirmation": {
+        "enabled": true,
+        "title": "",
+        "message": ""
+      },
+      "closeAfterRun": false
+    },
     {
       "id": "exit",
       "title": "退出启动器",
@@ -172,6 +243,11 @@
         "arguments": "",
         "workingDirectory": ".",
         "waitForExit": false
+      },
+      "confirmation": {
+        "enabled": false,
+        "title": "",
+        "message": ""
       },
       "closeAfterRun": false
     }

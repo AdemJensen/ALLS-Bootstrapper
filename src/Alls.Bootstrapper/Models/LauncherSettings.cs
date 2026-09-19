@@ -21,7 +21,13 @@ public enum DisplayLayoutMode
 public enum StartupMode { DefaultGame, Menu }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
-public enum OperationKind { Command, Exit }
+public enum OperationKind { Command, Exit, Shutdown, Restart }
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum UpdateSourceKind { Http, Usb }
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum UpdateApplyMode { FullReplace, ReplaceExisting, AddNewOnly }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum GameExitBehavior { Menu, Error }
@@ -47,7 +53,13 @@ public sealed class LauncherSettings
     public LoggingSettings Logging { get; set; } = new();
     public List<BootPhase> Timeline { get; set; } = CreateDefaultTimeline();
     public List<GameSettings> Games { get; set; } = [GameSettings.CreateDefault()];
-    public List<OperationSettings> Operations { get; set; } = [OperationSettings.CreateExit()];
+    public List<OperationSettings> Operations { get; set; } =
+    [
+        OperationSettings.CreateShutdown(),
+        OperationSettings.CreateRestart(),
+        OperationSettings.CreateExit()
+    ];
+    public List<UpdateSourceSettings> UpdateSources { get; set; } = [];
 
     public static List<BootPhase> CreateDefaultTimeline() =>
     [
@@ -64,6 +76,7 @@ public sealed class DisplaySettings
     public DisplayLayoutMode LayoutMode { get; set; } = DisplayLayoutMode.MaimaiDx;
     public int Width { get; set; } = 1280;
     public int Height { get; set; } = 720;
+    public int StepTransitionMs { get; set; }
     public bool Topmost { get; set; } = true;
     public bool HideCursor { get; set; } = true;
     public bool AllowEscapeToExit { get; set; } = true;
@@ -94,6 +107,7 @@ public sealed class GameSettings
     public DisplayLayoutMode? LayoutMode { get; set; }
     public LaunchSettings Launch { get; set; } = new();
     public ProcessMonitorSettings Monitor { get; set; } = new();
+    public GameUpdateSettings Update { get; set; } = new();
     public List<BootPhase> Timeline { get; set; } = [];
     public GameExitBehavior OnExit { get; set; } = GameExitBehavior.Menu;
     public string ExitErrorTitle { get; set; } = "GAME PROGRAM ENDED";
@@ -122,7 +136,28 @@ public sealed class OperationSettings
     public string Description { get; set; } = string.Empty;
     public OperationKind Kind { get; set; } = OperationKind.Command;
     public LaunchSettings Command { get; set; } = new();
+    public ConfirmationSettings Confirmation { get; set; } = new();
     public bool CloseAfterRun { get; set; }
+
+    public static OperationSettings CreateShutdown() => new()
+    {
+        Id = "shutdown",
+        Title = "关闭机台电源",
+        Description = "关闭 Windows 与机台电源",
+        Kind = OperationKind.Shutdown,
+        Command = new LaunchSettings { Enabled = true },
+        Confirmation = new ConfirmationSettings { Enabled = true }
+    };
+
+    public static OperationSettings CreateRestart() => new()
+    {
+        Id = "restart",
+        Title = "重新启动机台",
+        Description = "重新启动 Windows",
+        Kind = OperationKind.Restart,
+        Command = new LaunchSettings { Enabled = true },
+        Confirmation = new ConfirmationSettings { Enabled = true }
+    };
 
     public static OperationSettings CreateExit() => new()
     {
@@ -133,6 +168,13 @@ public sealed class OperationSettings
     };
 }
 
+public sealed class ConfirmationSettings
+{
+    public bool Enabled { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
 public sealed class ProcessMonitorSettings
 {
     public List<string> ProcessNames { get; set; } = [];
@@ -141,6 +183,30 @@ public sealed class ProcessMonitorSettings
     public TargetLossMode ExitMode { get; set; } = TargetLossMode.AnyMissing;
     public int StartupTimeoutMs { get; set; } = 120_000;
     public int PollIntervalMs { get; set; } = 500;
+    public int ReadyDelayMs { get; set; } = 5_000;
+}
+
+public sealed class GameUpdateSettings
+{
+    public bool Enabled { get; set; }
+    public List<string> SourceIds { get; set; } = [];
+    public UpdateApplyMode ApplyMode { get; set; } = UpdateApplyMode.ReplaceExisting;
+    public string TargetDirectory { get; set; } = ".";
+    public string VersionFile { get; set; } = "ABU_VERSION";
+}
+
+public sealed class UpdateSourceSettings
+{
+    public string Id { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+    public UpdateSourceKind Kind { get; set; }
+    public string BaseUrl { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string DriveLetter { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public bool ContainsMultipleGames { get; set; }
+    public int RequestTimeoutMs { get; set; } = 300_000;
 }
 
 public sealed class WindowTargetSettings

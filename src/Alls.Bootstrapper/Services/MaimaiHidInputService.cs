@@ -217,6 +217,7 @@ internal sealed class MaimaiHidInputService : IInputService
     {
         var buffer = new byte[Math.Max(16, device.GetMaxInputReportLength())];
         var previous = new Dictionary<(CabinetInputAction Action, int Player), bool>();
+        var previousChord = new Dictionary<int, bool>();
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -232,12 +233,26 @@ internal sealed class MaimaiHidInputService : IInputService
                 foreach (var button in state)
                 {
                     var wasPressed = previous.GetValueOrDefault(button.Key);
-                    if (button.Value && !wasPressed)
+                    if (button.Key.Action is not (CabinetInputAction.Button2 or CabinetInputAction.Button7)
+                        && button.Value
+                        && !wasPressed)
                     {
                         Pressed?.Invoke(this, new CabinetInputEventArgs(button.Key.Action, button.Key.Player));
                     }
 
                     previous[button.Key] = button.Value;
+                }
+
+                foreach (var player in state.Keys.Select(key => key.Player).Distinct())
+                {
+                    var chordPressed = state.GetValueOrDefault((CabinetInputAction.Button2, player))
+                        && state.GetValueOrDefault((CabinetInputAction.Button7, player));
+                    if (chordPressed && !previousChord.GetValueOrDefault(player))
+                    {
+                        Pressed?.Invoke(this, new CabinetInputEventArgs(CabinetInputAction.SwitchList, player));
+                    }
+
+                    previousChord[player] = chordPressed;
                 }
             }
             catch (TimeoutException)
@@ -285,6 +300,8 @@ internal sealed class MaimaiHidInputService : IInputService
             result[(CabinetInputAction.Up, player)] = (low & (1 << 2)) == 0;
             result[(CabinetInputAction.Down, player)] = (high & (1 << 7)) == 0;
             result[(CabinetInputAction.Confirm, player)] = (high & (1 << 6)) == 0;
+            result[(CabinetInputAction.Button2, player)] = (low & (1 << 3)) == 0;
+            result[(CabinetInputAction.Button7, player)] = (high & (1 << 4)) == 0;
         }
 
         return result;
@@ -298,6 +315,8 @@ internal sealed class MaimaiHidInputService : IInputService
         SetIfPresent(result, report, offset + 4, CabinetInputAction.Up, player);
         SetIfPresent(result, report, offset + 1, CabinetInputAction.Down, player);
         SetIfPresent(result, report, offset + 8, CabinetInputAction.Confirm, player);
+        SetIfPresent(result, report, offset + 3, CabinetInputAction.Button2, player);
+        SetIfPresent(result, report, offset + 6, CabinetInputAction.Button7, player);
         return result;
     }
 
@@ -316,6 +335,8 @@ internal sealed class MaimaiHidInputService : IInputService
         result[(CabinetInputAction.Up, player)] = (buttons & (1 << 0)) != 0;
         result[(CabinetInputAction.Down, player)] = (buttons & (1 << 3)) != 0;
         result[(CabinetInputAction.Confirm, player)] = (buttons & (1 << 4)) != 0;
+        result[(CabinetInputAction.Button2, player)] = (buttons & (1 << 1)) != 0;
+        result[(CabinetInputAction.Button7, player)] = (buttons & (1 << 6)) != 0;
         return result;
     }
 
@@ -336,6 +357,8 @@ internal sealed class MaimaiHidInputService : IInputService
         result[(CabinetInputAction.Up, player)] = (buttons & (1 << 0)) != 0;
         result[(CabinetInputAction.Down, player)] = (buttons & (1 << 3)) != 0;
         result[(CabinetInputAction.Confirm, player)] = (buttons & (1 << 4)) != 0;
+        result[(CabinetInputAction.Button2, player)] = (buttons & (1 << 1)) != 0;
+        result[(CabinetInputAction.Button7, player)] = (buttons & (1 << 6)) != 0;
         return result;
     }
 

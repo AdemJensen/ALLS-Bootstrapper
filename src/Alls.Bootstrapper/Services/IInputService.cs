@@ -5,7 +5,10 @@ internal enum CabinetInputAction
     Select,
     Up,
     Down,
-    Confirm
+    Confirm,
+    SwitchList,
+    Button2,
+    Button7
 }
 
 internal sealed class CabinetInputEventArgs(CabinetInputAction action, int player) : EventArgs
