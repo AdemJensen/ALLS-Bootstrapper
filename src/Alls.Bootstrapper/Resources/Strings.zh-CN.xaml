@@ -14,4 +14,10 @@
     <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">找不到游戏启动程序</sys:String>
     <sys:String x:Key="LAUNCH_TARGET_FAILED">游戏启动程序运行失败</sys:String>
     <sys:String x:Key="UNEXPECTED_ERROR">启动组件发生异常</sys:String>
+    <sys:String x:Key="OPERATION_MENU_TITLE">操作界面</sys:String>
+    <sys:String x:Key="OPERATION_MENU_HELP">1 号键：上移　4 号键：下移　5 号键：确认</sys:String>
+    <sys:String x:Key="ERROR_MENU_HELP">按 SELECT 或 5 号键返回操作界面</sys:String>
+    <sys:String x:Key="WAITING_FOR_GAME">正在等待游戏进程与窗口</sys:String>
+    <sys:String x:Key="GAME_START_TIMEOUT">等待游戏程序启动超时</sys:String>
+    <sys:String x:Key="NO_GAME_CONFIGURED">配置中没有可启动的游戏</sys:String>
 </ResourceDictionary>

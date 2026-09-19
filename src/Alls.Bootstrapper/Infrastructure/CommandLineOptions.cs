@@ -51,8 +51,16 @@ internal sealed record CommandLineOptions(
 
         if (Preview)
         {
-            settings.Launch.Enabled = false;
-            settings.AutoCloseAfterSequence = false;
+            foreach (var game in settings.Games)
+            {
+                game.Launch.Enabled = false;
+            }
+
+            foreach (var operation in settings.Operations)
+            {
+                operation.Command.Enabled = false;
+            }
+
             settings.Display.AllowEscapeToExit = true;
         }
     }

@@ -14,4 +14,10 @@
     <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">Game Program Not Found</sys:String>
     <sys:String x:Key="LAUNCH_TARGET_FAILED">Game Program Could Not Start</sys:String>
     <sys:String x:Key="UNEXPECTED_ERROR">Unexpected System Failure</sys:String>
+    <sys:String x:Key="OPERATION_MENU_TITLE">Operation Menu</sys:String>
+    <sys:String x:Key="OPERATION_MENU_HELP">Button 1: Up   Button 4: Down   Button 5: Confirm</sys:String>
+    <sys:String x:Key="ERROR_MENU_HELP">Press SELECT or Button 5 to return to the operation menu</sys:String>
+    <sys:String x:Key="WAITING_FOR_GAME">Waiting for game process and window</sys:String>
+    <sys:String x:Key="GAME_START_TIMEOUT">Timed out while waiting for the game program</sys:String>
+    <sys:String x:Key="NO_GAME_CONFIGURED">No game is configured</sys:String>
 </ResourceDictionary>

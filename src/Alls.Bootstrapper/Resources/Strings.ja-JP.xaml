@@ -14,4 +14,10 @@
     <sys:String x:Key="LAUNCH_TARGET_NOT_FOUND">ゲームプログラムが見つかりません</sys:String>
     <sys:String x:Key="LAUNCH_TARGET_FAILED">ゲームプログラムを起動できません</sys:String>
     <sys:String x:Key="UNEXPECTED_ERROR">予期せぬ問題が発生しました</sys:String>
+    <sys:String x:Key="OPERATION_MENU_TITLE">操作メニュー</sys:String>
+    <sys:String x:Key="OPERATION_MENU_HELP">1番ボタン：上　4番ボタン：下　5番ボタン：決定</sys:String>
+    <sys:String x:Key="ERROR_MENU_HELP">SELECT または 5番ボタンで操作メニューに戻ります</sys:String>
+    <sys:String x:Key="WAITING_FOR_GAME">ゲームプロセスとウィンドウを待っています</sys:String>
+    <sys:String x:Key="GAME_START_TIMEOUT">ゲームプログラムの起動がタイムアウトしました</sys:String>
+    <sys:String x:Key="NO_GAME_CONFIGURED">ゲームが設定されていません</sys:String>
 </ResourceDictionary>

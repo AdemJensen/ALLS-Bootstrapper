@@ -3,27 +3,98 @@
   "language": "zh-CN",
   "logoPath": "Assets/logo.png",
   "loadingPath": "Assets/logomode_load.gif",
-  "autoCloseAfterSequence": true,
   "display": {
     "mode": "Fullscreen",
+    "layoutMode": "Auto",
     "width": 1280,
     "height": 720,
     "topmost": true,
     "hideCursor": true,
     "allowEscapeToExit": true
   },
-  "launch": {
+  "startup": {
+    "mode": "DefaultGame",
+    "defaultGameId": "maimai-dx",
+    "allowSelectToOpenMenu": true
+  },
+  "input": {
     "enabled": true,
-    "file": null,
-    "candidates": [
-      "start.bat",
-      "启动.bat"
-    ],
-    "arguments": "",
-    "workingDirectory": ".",
-    "waitForExit": false,
-    "postLaunchDelayMs": 13000,
-    "closeWhenTargetMissing": false
+    "keyboardFallback": true,
+    "hotPlugIntervalMs": 1000,
+    "devices": [
+      {
+        "enabled": true,
+        "name": "SEGA IO4",
+        "profile": "SegaIo4",
+        "player": 0,
+        "deviceIndex": 0,
+        "vendorId": "0x0CA3",
+        "productIds": ["0x0021"]
+      },
+      {
+        "enabled": true,
+        "name": "SEGA IO4 second device",
+        "profile": "SegaIo4",
+        "player": 2,
+        "deviceIndex": 1,
+        "vendorId": "0x0CA3",
+        "productIds": ["0x0021"]
+      },
+      {
+        "enabled": true,
+        "name": "ADX HID 1P",
+        "profile": "AdxHid",
+        "player": 1,
+        "deviceIndex": 0,
+        "vendorId": "0x2E3C",
+        "productIds": ["0x5750"]
+      },
+      {
+        "enabled": true,
+        "name": "ADX HID 2P",
+        "profile": "AdxHid",
+        "player": 2,
+        "deviceIndex": 0,
+        "vendorId": "0x2E4C",
+        "productIds": ["0x5750"]
+      },
+      {
+        "enabled": true,
+        "name": "NPro DX 1P",
+        "profile": "NProDx",
+        "player": 1,
+        "deviceIndex": 0,
+        "vendorId": "0x2E3C",
+        "productIds": ["0x5751"]
+      },
+      {
+        "enabled": true,
+        "name": "NPro DX 2P",
+        "profile": "NProDx",
+        "player": 2,
+        "deviceIndex": 0,
+        "vendorId": "0x2E3C",
+        "productIds": ["0x5752"]
+      },
+      {
+        "enabled": true,
+        "name": "Maimoller IO V2 1P",
+        "profile": "Maimoller",
+        "player": 1,
+        "deviceIndex": 0,
+        "vendorId": "0x0E8F",
+        "productIds": ["0x1224"]
+      },
+      {
+        "enabled": true,
+        "name": "Maimoller IO V2 2P",
+        "profile": "Maimoller",
+        "player": 2,
+        "deviceIndex": 0,
+        "vendorId": "0x0E8F",
+        "productIds": ["0x1224"]
+      }
+    ]
   },
   "logging": {
     "enabled": true,
@@ -53,6 +124,55 @@
       "messageKey": "STEP_30_MESSAGE",
       "durationMs": 1200,
       "action": "Launch"
+    }
+  ],
+  "games": [
+    {
+      "id": "maimai-dx",
+      "title": "maimai DX",
+      "description": "启动 maimai DX 游戏程序",
+      "launch": {
+        "enabled": true,
+        "file": null,
+        "candidates": ["start.bat", "启动.bat"],
+        "arguments": "",
+        "workingDirectory": ".",
+        "waitForExit": false
+      },
+      "monitor": {
+        "processNames": ["Sinmai"],
+        "window": {
+          "enabled": true,
+          "processName": "Sinmai",
+          "titleContains": "",
+          "className": ""
+        },
+        "readyMode": "All",
+        "exitMode": "AnyMissing",
+        "startupTimeoutMs": 120000,
+        "pollIntervalMs": 500
+      },
+      "timeline": [],
+      "onExit": "Menu",
+      "exitErrorTitle": "GAME PROGRAM ENDED",
+      "exitErrorMessage": "游戏程序已经停止运行"
+    }
+  ],
+  "operations": [
+    {
+      "id": "exit",
+      "title": "退出启动器",
+      "description": "关闭 ALLS Bootstrapper",
+      "kind": "Exit",
+      "command": {
+        "enabled": false,
+        "file": null,
+        "candidates": [],
+        "arguments": "",
+        "workingDirectory": ".",
+        "waitForExit": false
+      },
+      "closeAfterRun": false
     }
   ]
 }

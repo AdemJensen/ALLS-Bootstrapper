@@ -27,8 +27,17 @@ public partial class App : Application
 
             var launcher = new ProcessLauncher(logger);
             var sequence = new BootSequenceService(launcher, logger);
-            var viewModel = new BootViewModel(settings, localization, sequence, logger);
-            var window = new MainWindow(settings.Display, viewModel, logger);
+            var monitor = new TargetMonitorService(logger);
+            var input = new MaimaiHidInputService(settings.Input, logger);
+            var viewModel = new LauncherViewModel(
+                settings,
+                localization,
+                sequence,
+                launcher,
+                monitor,
+                input,
+                logger);
+            var window = new MainWindow(settings.Display, settings.Input, viewModel, input, logger);
 
             MainWindow = window;
             window.Show();
