@@ -62,3 +62,6 @@ alls-launcher.local.json
 *.bak
 *.swp
 *~
+
+# Codex outputs
+outputs/
