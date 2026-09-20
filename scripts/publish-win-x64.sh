@@ -29,7 +29,14 @@ mkdir -p -- "$publish_dir"
   -c "$configuration" -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -m:1 -o "$publish_dir"
 
-ditto -c -k --keepParent "$publish_dir" "$archive_path"
+xattr -cr "$publish_dir"
+COPYFILE_DISABLE=1 ditto -c -k --norsrc --noextattr --keepParent \
+  "$publish_dir" "$archive_path"
+
+if unzip -Z1 "$archive_path" | grep -Eq '(^|/)\._|(^|/)__MACOSX(/|$)'; then
+  echo "Archive contains unexpected macOS metadata files: $archive_path" >&2
+  exit 3
+fi
 
 echo "Published directory: $publish_dir"
 echo "Published archive:   $archive_path"

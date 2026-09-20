@@ -104,8 +104,12 @@ make publish-win DOTNET="C:\Program Files\dotnet\dotnet.exe" CONFIGURATION=Relea
 
 ```console
 make build
+make clean
 make help
 ```
+
+`make clean` 会按当前平台调用清理脚本，删除 `artifacts`、两个项目的 `bin` 和 `obj`
+目录。它不会删除 `src/Alls.Bootstrapper/Assets` 中的 Logo、GIF 或应用图标等源文件。
 
 `PublishSingleFile` 将托管运行库嵌入 EXE，`IncludeNativeLibrariesForSelfExtract` 继续把 WPF
 原生运行库一并嵌入；启动时它们会自动解压到系统临时目录。最终发布目录只包含
@@ -118,6 +122,9 @@ make help
 裁剪，强行裁剪可能破坏 XAML、数据绑定和 JSON 反射访问。
 
 请从仓库根目录执行 Make 目标；脚本会先删除已有的发布目录和 ZIP，避免旧版文件残留。
+macOS 发布脚本还会清除扩展属性，并用 `ditto --norsrc --noextattr` 禁止把 Finder 元数据和
+资源叉写入 ZIP；生成后会再次检查归档中不存在 `._*` 或 `__MACOSX` 条目，避免这些
+AppleDouble 文件在 Windows 解压时显示出来。
 
 ### 发布 Bootstrapper
 
