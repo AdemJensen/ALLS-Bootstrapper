@@ -23,6 +23,29 @@ ALLS 系统的 Logo Mode 和分阶段启动流程。项目使用 .NET 8 WPF，�
 完整 JSON 字段、示例和更新规则请参阅
 [JSON 配置参考](docs/configuration.md)。
 
+## 实机截图
+
+以下画面来自 Windows 实机运行，示例配置使用中文界面、`ALLS HX2.1` 平台名称与
+`maimai DX` 游戏项。Logo、平台名称、游戏列表和启动路径均可通过 JSON 或图形配置器调整。
+
+### ALLS Bootstrapper
+
+| 分阶段启动 | 操作界面 |
+| :---: | :---: |
+| ![Bootstrapper 分阶段启动画面](docs/images/readme/bootstrapper-step-30.png) | ![Bootstrapper 操作界面与机台按键提示](docs/images/readme/bootstrapper-operations.png) |
+| STEP 时间线会显示当前阶段和提示信息 | 可选择游戏、批量更新以及执行关机、重启等机台操作 |
+
+![Bootstrapper 游戏更新详情弹窗](docs/images/readme/bootstrapper-update-details.png)
+
+更新详情弹窗会分别显示每个更新源的尝试结果，便于在机台上快速确认更新状态。
+
+### ALLS Configurator
+
+| 概览与显示 | 游戏启动配置 |
+| :---: | :---: |
+| ![Configurator 概览与显示页面](docs/images/readme/configurator-overview.png) | ![Configurator 游戏启动命令与工作目录配置](docs/images/readme/configurator-game-launch.png) |
+| 配置平台品牌、语言、窗口模式、布局与启动入口 | 配置游戏身份、候选启动文件、工作目录及后续监控行为 |
+
 ## 图形配置器
 
 `ALLS.Configurator.exe` 覆盖当前 JSON 模型中的全部配置项，包括：
