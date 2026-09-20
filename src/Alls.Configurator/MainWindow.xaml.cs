@@ -23,7 +23,9 @@ public partial class MainWindow : Window
 
     private readonly ConfigurationDocumentService documents = new();
     private LauncherSettings settings = new();
+    private LauncherSettings? baselineSettings;
     private string? currentPath;
+    private bool hasDocument;
     private bool isDirty;
     private bool suppressChanges;
 
@@ -36,7 +38,7 @@ public partial class MainWindow : Window
         AddHandler(ToggleButton.UncheckedEvent, new RoutedEventHandler(OnEditorChanged));
         AddHandler(ComboBox.SelectionChangedEvent, new SelectionChangedEventHandler(OnComboChanged));
 
-        SetDocument(CreateNewSettings(), null, false);
+        CloseDocumentCore();
     }
 
     public void OpenFromCommandLine(string path)
@@ -58,17 +60,24 @@ public partial class MainWindow : Window
         suppressChanges = true;
         settings = value;
         ConfigurationDocumentService.Normalize(settings);
+        baselineSettings = documents.Clone(settings);
         currentPath = path;
+        hasDocument = true;
         DataContext = null;
         DataContext = settings;
 
+        SectionList.SelectedIndex = 0;
+        EditorTabs.SelectedIndex = 0;
         GamesList.SelectedIndex = settings.Games.Count > 0 ? 0 : -1;
         DevicesList.SelectedIndex = settings.Input.Devices.Count > 0 ? 0 : -1;
         SourcesList.SelectedIndex = settings.UpdateSources.Count > 0 ? 0 : -1;
         OperationsList.SelectedIndex = settings.Operations.Count > 0 ? 0 : -1;
         UpdateGameEditorState();
-        UpdateDocumentChrome();
-        SetDirty(dirty);
+        UpdateSourceEditorState();
+        UpdateOperationEditorState();
+        isDirty = dirty;
+        DirtyIndicator.Visibility = dirty ? Visibility.Visible : Visibility.Collapsed;
+        UpdateDocumentUi();
         StatusText.Text = path is null ? "已创建新配置" : "已打开配置";
 
         Dispatcher.InvokeAsync(() => suppressChanges = false, DispatcherPriority.ContextIdle);
@@ -82,22 +91,63 @@ public partial class MainWindow : Window
 
     private void UpdateDocumentChrome()
     {
-        SidebarFileName.Text = currentPath is null ? "未命名配置" : Path.GetFileName(currentPath);
-        SidebarFileName.ToolTip = currentPath ?? "尚未保存";
-        PathText.Text = currentPath ?? "尚未选择保存位置";
+        SidebarFileName.Text = !hasDocument ? "未打开文件" : currentPath is null ? "未命名配置" : Path.GetFileName(currentPath);
+        SidebarFileName.ToolTip = !hasDocument ? "请选择配置文件或新建配置" : currentPath ?? "尚未保存";
+        PathText.Text = !hasDocument ? "没有打开的配置文件" : currentPath ?? "尚未选择保存位置";
         Title = $"ALLS Configurator — {SidebarFileName.Text}{(isDirty ? " *" : string.Empty)}";
+    }
+
+    private void UpdateDocumentUi()
+    {
+        EditorTabs.Visibility = hasDocument ? Visibility.Visible : Visibility.Collapsed;
+        EmptyDocumentPanel.Visibility = hasDocument ? Visibility.Collapsed : Visibility.Visible;
+        SectionList.IsEnabled = hasDocument;
+        CloseFileButton.IsEnabled = hasDocument;
+        SaveButton.IsEnabled = hasDocument;
+        SaveAsButton.IsEnabled = hasDocument;
+        DiscardChangesButton.IsEnabled = hasDocument && isDirty;
+        ValidateButton.IsEnabled = hasDocument;
+        UpdateDocumentChrome();
+    }
+
+    private void CloseDocumentCore()
+    {
+        suppressChanges = true;
+        settings = new LauncherSettings();
+        baselineSettings = null;
+        currentPath = null;
+        hasDocument = false;
+        isDirty = false;
+        DataContext = null;
+        GamesList.SelectedIndex = -1;
+        DevicesList.SelectedIndex = -1;
+        SourcesList.SelectedIndex = -1;
+        OperationsList.SelectedIndex = -1;
+        SectionList.SelectedIndex = -1;
+        ValidationGrid.ItemsSource = null;
+        ValidationSummary.Text = "尚未检查";
+        ValidationSummary.Foreground = Brushes.Black;
+        JsonPreview.Clear();
+        DirtyIndicator.Visibility = Visibility.Collapsed;
+        UpdateGameEditorState();
+        UpdateSourceEditorState();
+        UpdateOperationEditorState();
+        UpdateDocumentUi();
+        StatusText.Text = "请选择配置文件或新建配置";
+        Dispatcher.InvokeAsync(() => suppressChanges = false, DispatcherPriority.ContextIdle);
     }
 
     private void SetDirty(bool value = true)
     {
-        if (suppressChanges && value) return;
+        if (!hasDocument || (suppressChanges && value)) return;
         isDirty = value;
         DirtyIndicator.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
-        UpdateDocumentChrome();
+        UpdateDocumentUi();
     }
 
     private void OnEditorChanged(object sender, RoutedEventArgs e)
     {
+        if (!hasDocument) return;
         if (e.OriginalSource == JsonPreview || (e.OriginalSource is TextBox textBox && textBox.IsReadOnly)) return;
         SetDirty();
         if (e.OriginalSource is TextBox editor)
@@ -112,12 +162,12 @@ public partial class MainWindow : Window
 
     private void OnComboChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.OriginalSource is ComboBox) SetDirty();
+        if (e.OriginalSource is ComboBox && hasDocument) SetDirty();
     }
 
     private bool ConfirmDiscardOrSave()
     {
-        if (!isDirty) return true;
+        if (!hasDocument || !isDirty) return true;
         var answer = MessageBox.Show(this, "当前配置有未保存的修改。是否先保存？", "ALLS Configurator",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
         return answer switch
@@ -131,6 +181,25 @@ public partial class MainWindow : Window
     private void New_Click(object sender, RoutedEventArgs e)
     {
         if (ConfirmDiscardOrSave()) SetDocument(CreateNewSettings(), null, true);
+    }
+
+    private void CloseFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (!hasDocument || !ConfirmDiscardOrSave()) return;
+        CloseDocumentCore();
+    }
+
+    private void DiscardChanges_Click(object sender, RoutedEventArgs e)
+    {
+        if (!hasDocument || !isDirty || baselineSettings is null) return;
+        var answer = MessageBox.Show(this,
+            "确定放弃自上次保存或打开以来的全部修改吗？\n\n此操作无法撤销。",
+            "放弃所有修改", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+
+        var restored = documents.Clone(baselineSettings);
+        SetDocument(restored, currentPath, false);
+        StatusText.Text = currentPath is null ? "已恢复新建配置的初始内容" : "已放弃所有未保存修改";
     }
 
     private void Open_Click(object sender, RoutedEventArgs e)
@@ -158,6 +227,7 @@ public partial class MainWindow : Window
 
     private bool SaveDocument(bool saveAs)
     {
+        if (!hasDocument) return false;
         CommitPendingEdits();
         if (HasBindingError(this))
         {
@@ -194,6 +264,7 @@ public partial class MainWindow : Window
         {
             documents.Save(targetPath!, settings);
             currentPath = Path.GetFullPath(targetPath!);
+            baselineSettings = documents.Clone(settings);
             SetDirty(false);
             StatusText.Text = $"已保存 {DateTime.Now:HH:mm:ss}";
             return true;
@@ -207,6 +278,7 @@ public partial class MainWindow : Window
 
     private void CommitPendingEdits()
     {
+        if (!hasDocument) return;
         DefaultTimelineGrid.CommitEdit(DataGridEditingUnit.Cell, true);
         DefaultTimelineGrid.CommitEdit(DataGridEditingUnit.Row, true);
         GameTimelineGrid.CommitEdit(DataGridEditingUnit.Cell, true);
@@ -217,6 +289,7 @@ public partial class MainWindow : Window
 
     private void Validate_Click(object sender, RoutedEventArgs e)
     {
+        if (!hasDocument) return;
         CommitPendingEdits();
         RunValidationAndPreview();
         SectionList.SelectedIndex = 6;
@@ -224,12 +297,14 @@ public partial class MainWindow : Window
 
     private void RefreshPreview_Click(object sender, RoutedEventArgs e)
     {
+        if (!hasDocument) return;
         CommitPendingEdits();
         RunValidationAndPreview();
     }
 
     private IReadOnlyList<ValidationIssue> RunValidationAndPreview()
     {
+        if (!hasDocument) return [];
         var issues = ConfigurationValidator.Validate(settings);
         ValidationGrid.ItemsSource = issues;
         var errors = issues.Count(issue => issue.Severity == ValidationSeverity.Error);
@@ -245,7 +320,7 @@ public partial class MainWindow : Window
 
     private void OnSectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (EditorTabs is null || SectionList.SelectedIndex < 0) return;
+        if (!hasDocument || EditorTabs is null || SectionList.SelectedIndex < 0) return;
         EditorTabs.SelectedIndex = SectionList.SelectedIndex;
         if (SectionList.SelectedIndex == 6) RunValidationAndPreview();
     }
@@ -562,7 +637,27 @@ public partial class MainWindow : Window
 
     // Update sources
     private UpdateSourceSettings? SelectedSource => SourcesList.SelectedItem as UpdateSourceSettings;
-    private void SourcesList_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void SourcesList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSourceEditorState();
+    private void UpdateSourceKind_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var kind = sender is ComboBox { SelectedValue: UpdateSourceKind selectedKind }
+            ? selectedKind
+            : SelectedSource?.Kind;
+        UpdateSourceEditorState(kind);
+    }
+
+    private void UpdateSourceEditorState(UpdateSourceKind? selectedKind = null)
+    {
+        var kind = selectedKind ?? SelectedSource?.Kind;
+        var httpVisibility = kind == UpdateSourceKind.Http ? Visibility.Visible : Visibility.Collapsed;
+        var usbVisibility = kind == UpdateSourceKind.Usb ? Visibility.Visible : Visibility.Collapsed;
+        SetElementsVisibility(httpVisibility,
+            HttpBaseUrlLabel, HttpBaseUrlEditor,
+            HttpUsernameLabel, HttpUsernameEditor,
+            HttpPasswordLabel, HttpPasswordEditor,
+            HttpTimeoutLabel, HttpTimeoutEditor);
+        SetElementsVisibility(usbVisibility, UsbDriveLabel, UsbDriveEditor, BrowseUpdateSourcePathButton);
+    }
     private void AddSource_Click(object sender, RoutedEventArgs e) { var item = new UpdateSourceSettings { Id = UniqueId("update-source", settings.UpdateSources.Select(source => source.Id)), Enabled = true, Kind = UpdateSourceKind.Http }; settings.UpdateSources.Add(item); SourcesList.Items.Refresh(); SourcesList.SelectedItem = item; RefreshGameUpdateSources(); SetDirty(); }
     private void DuplicateSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var clone = CloneItem(selected); clone.Id = UniqueId(selected.Id + "-copy", settings.UpdateSources.Select(source => source.Id)); settings.UpdateSources.Insert(settings.UpdateSources.IndexOf(selected) + 1, clone); SourcesList.Items.Refresh(); SourcesList.SelectedItem = clone; RefreshGameUpdateSources(); SetDirty(); }
     private void DeleteSource_Click(object sender, RoutedEventArgs e) { if (SelectedSource is not { } selected) return; var index = settings.UpdateSources.IndexOf(selected); settings.UpdateSources.Remove(selected); SourcesList.Items.Refresh(); SourcesList.SelectedIndex = Math.Min(index, settings.UpdateSources.Count - 1); RefreshGameUpdateSources(); SetDirty(); }
@@ -571,7 +666,29 @@ public partial class MainWindow : Window
 
     // Operations
     private OperationSettings? SelectedOperation => OperationsList.SelectedItem as OperationSettings;
-    private void OperationsList_SelectionChanged(object sender, SelectionChangedEventArgs e) { }
+    private void OperationsList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateOperationEditorState();
+    private void OperationKind_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var kind = sender is ComboBox { SelectedValue: OperationKind selectedKind }
+            ? selectedKind
+            : SelectedOperation?.Kind;
+        UpdateOperationEditorState(kind);
+    }
+
+    private void UpdateOperationEditorState(OperationKind? selectedKind = null)
+    {
+        var kind = selectedKind ?? SelectedOperation?.Kind;
+        var visibility = kind == OperationKind.Command ? Visibility.Visible : Visibility.Collapsed;
+        SetElementsVisibility(visibility, OperationCommandGroup);
+    }
+
+    private static void SetElementsVisibility(Visibility visibility, params UIElement?[] elements)
+    {
+        foreach (var element in elements)
+        {
+            if (element is not null) element.Visibility = visibility;
+        }
+    }
     private void AddOperation_Click(object sender, RoutedEventArgs e) { var item = new OperationSettings { Id = UniqueId("custom-command", settings.Operations.Select(operation => operation.Id)), Title = "新操作", Kind = OperationKind.Command, Command = new LaunchSettings { Enabled = true } }; settings.Operations.Add(item); OperationsList.Items.Refresh(); OperationsList.SelectedItem = item; SetDirty(); }
     private void DuplicateOperation_Click(object sender, RoutedEventArgs e) { if (SelectedOperation is not { } selected) return; var clone = CloneItem(selected); clone.Id = UniqueId(selected.Id + "-copy", settings.Operations.Select(operation => operation.Id)); clone.Title += "（副本）"; settings.Operations.Insert(settings.Operations.IndexOf(selected) + 1, clone); OperationsList.Items.Refresh(); OperationsList.SelectedItem = clone; SetDirty(); }
     private void DeleteOperation_Click(object sender, RoutedEventArgs e) { if (SelectedOperation is not { } selected) return; var index = settings.Operations.IndexOf(selected); settings.Operations.Remove(selected); OperationsList.Items.Refresh(); OperationsList.SelectedIndex = Math.Min(index, settings.Operations.Count - 1); SetDirty(); }

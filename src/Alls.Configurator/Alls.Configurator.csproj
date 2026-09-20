@@ -16,5 +16,14 @@
   <ItemGroup>
     <Compile Include="..\Alls.Bootstrapper\Models\LauncherSettings.cs" Link="Shared\LauncherSettings.cs" />
     <Compile Include="..\Alls.Bootstrapper\Models\BootPhase.cs" Link="Shared\BootPhase.cs" />
+    <EmbeddedResource Include="..\Alls.Bootstrapper\Resources\Strings.zh-CN.xaml"
+                      LogicalName="Alls.Configurator.Resources.Strings.zh-CN.xaml"
+                      WithCulture="false" />
+    <EmbeddedResource Include="..\Alls.Bootstrapper\Resources\Strings.en-US.xaml"
+                      LogicalName="Alls.Configurator.Resources.Strings.en-US.xaml"
+                      WithCulture="false" />
+    <EmbeddedResource Include="..\Alls.Bootstrapper\Resources\Strings.ja-JP.xaml"
+                      LogicalName="Alls.Configurator.Resources.Strings.ja-JP.xaml"
+                      WithCulture="false" />
   </ItemGroup>
 </Project>

@@ -9,19 +9,32 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        var window = new MainWindow();
-        MainWindow = window;
-        window.Show();
+        try
+        {
+            var window = new MainWindow();
+            MainWindow = window;
+            window.Show();
 
-        var requestedPath = e.Args.FirstOrDefault(argument => !argument.StartsWith('-'));
-        if (string.IsNullOrWhiteSpace(requestedPath))
-        {
-            var adjacentConfiguration = Path.Combine(AppContext.BaseDirectory, "alls-launcher.json");
-            if (File.Exists(adjacentConfiguration)) requestedPath = adjacentConfiguration;
+            var requestedPath = e.Args.FirstOrDefault(argument => !argument.StartsWith('-'));
+            if (string.IsNullOrWhiteSpace(requestedPath))
+            {
+                var adjacentConfiguration = Path.Combine(AppContext.BaseDirectory, "alls-launcher.json");
+                if (File.Exists(adjacentConfiguration)) requestedPath = adjacentConfiguration;
+            }
+            if (!string.IsNullOrWhiteSpace(requestedPath))
+            {
+                window.OpenFromCommandLine(requestedPath);
+            }
         }
-        if (!string.IsNullOrWhiteSpace(requestedPath))
+        catch (Exception exception)
         {
-            window.OpenFromCommandLine(requestedPath);
+            var rootCause = exception.GetBaseException();
+            MessageBox.Show(
+                $"配置器启动失败：\n{rootCause.Message}",
+                "ALLS Configurator",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(-1);
         }
     }
 }

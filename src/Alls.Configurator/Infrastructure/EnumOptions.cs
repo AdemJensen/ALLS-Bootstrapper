@@ -1,11 +1,32 @@
+using System.Reflection;
+using System.Xml.Linq;
 using Alls.Bootstrapper.Models;
 
 namespace Alls.Configurator.Infrastructure;
 
 public sealed record EnumOption<T>(T Value, string Label) where T : struct, Enum;
 
+public sealed record StringOption(string Value, string Label);
+
+public sealed record MessageKeyOption(string Key, string Chinese, string English, string Japanese)
+{
+    public string Label => $"{Key} — {Chinese}";
+
+    public string HelpText => $"简体中文：{Chinese}\nEnglish：{English}\n日本語：{Japanese}";
+}
+
 public static class EnumOptions
 {
+    public static IReadOnlyList<StringOption> GameLanguages { get; } =
+    [
+        new(string.Empty, "继承全局语言"),
+        new("zh-CN", "简体中文（zh-CN）"),
+        new("en-US", "English（en-US）"),
+        new("ja-JP", "日本語（ja-JP）")
+    ];
+
+    public static IReadOnlyList<MessageKeyOption> MessageKeys { get; } = CreateMessageKeyOptions();
+
     public static IReadOnlyList<EnumOption<WindowMode>> WindowModes { get; } =
     [
         new(WindowMode.Fullscreen, "全屏"),
@@ -83,4 +104,32 @@ public static class EnumOptions
         new(BootPhaseAction.Launch, "启动游戏"),
         new(BootPhaseAction.Exit, "退出启动器")
     ];
+
+    private static IReadOnlyList<MessageKeyOption> CreateMessageKeyOptions()
+    {
+        var chinese = LoadMessages("zh-CN");
+        var english = LoadMessages("en-US");
+        var japanese = LoadMessages("ja-JP");
+        return chinese
+            .Select(entry => new MessageKeyOption(
+                entry.Key,
+                entry.Value,
+                english.GetValueOrDefault(entry.Key, "（无对应文本）"),
+                japanese.GetValueOrDefault(entry.Key, "（无对应文本）")))
+            .ToList();
+    }
+
+    private static Dictionary<string, string> LoadMessages(string language)
+    {
+        var resourceName = $"Alls.Configurator.Resources.Strings.{language}.xaml";
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"找不到内置语言资源：{resourceName}");
+        var document = XDocument.Load(stream);
+        var keyName = XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml");
+        return document.Root?.Elements()
+            .Select(element => new { Key = element.Attribute(keyName)?.Value, Value = element.Value })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key))
+            .ToDictionary(entry => entry.Key!, entry => entry.Value, StringComparer.Ordinal)
+            ?? [];
+    }
 }
