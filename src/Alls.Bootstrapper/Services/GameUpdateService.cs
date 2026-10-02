@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -15,7 +16,8 @@ internal enum GameUpdateOutcome
     UpdateDirectoryNotFound,
     UpToDate,
     Completed,
-    Failed
+    Failed,
+    ServerUnavailable
 }
 
 internal enum UpdateSourceOutcome
@@ -26,7 +28,9 @@ internal enum UpdateSourceOutcome
     DirectoryNotFound,
     UpToDate,
     Completed,
-    Failed
+    Failed,
+    ServerUnavailable,
+    ConnectionFailed
 }
 
 internal sealed record UpdateSourceAttempt(
@@ -34,9 +38,121 @@ internal sealed record UpdateSourceAttempt(
     UpdateSourceOutcome Outcome,
     string? Detail = null);
 
+internal sealed class UpdateServerUnavailableException(string message, Exception innerException)
+    : IOException(message, innerException);
+
 internal sealed record GameUpdateResult(
     GameUpdateOutcome Outcome,
-    IReadOnlyList<UpdateSourceAttempt> Attempts);
+    IReadOnlyList<UpdateSourceAttempt> Attempts,
+    int TotalFiles = 0,
+    int CopiedFiles = 0,
+    bool HasCopyStatistics = false);
+
+internal sealed class UpdateCopyStatistics
+{
+    public int TotalFiles { get; private set; }
+
+    public int CopiedFiles { get; private set; }
+
+    public bool IsAvailable { get; private set; }
+
+    public void Reset()
+    {
+        TotalFiles = 0;
+        CopiedFiles = 0;
+        IsAvailable = false;
+    }
+
+    public void SetTotal(int totalFiles)
+    {
+        TotalFiles = totalFiles;
+        CopiedFiles = 0;
+        IsAvailable = true;
+    }
+
+    public void RecordCopied() => CopiedFiles++;
+}
+
+internal enum GameUpdateProgressStage
+{
+    Checking,
+    Downloading,
+    Preparing,
+    Copying
+}
+
+internal sealed record GameUpdateProgress(
+    GameUpdateProgressStage Stage,
+    int CompletedFiles = 0,
+    int TotalFiles = 0)
+{
+    public bool HasFileCount => Stage is GameUpdateProgressStage.Downloading or GameUpdateProgressStage.Copying;
+
+    public double Percentage => !HasFileCount ? 0 : TotalFiles == 0
+        ? 100
+        : Math.Clamp(CompletedFiles * 100.0 / TotalFiles, 0, 100);
+}
+
+internal sealed class UpdatePauseController(IProgress<bool>? pauseState = null)
+{
+    private readonly object sync = new();
+    private TaskCompletionSource? resumeSignal;
+    private bool pauseAcknowledged;
+
+    public void RequestPause()
+    {
+        lock (sync)
+        {
+            resumeSignal ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+    }
+
+    public void Resume()
+    {
+        TaskCompletionSource? signal;
+        var notifyResumed = false;
+        lock (sync)
+        {
+            signal = resumeSignal;
+            resumeSignal = null;
+            notifyResumed = pauseAcknowledged;
+            pauseAcknowledged = false;
+        }
+
+        signal?.TrySetResult();
+        if (notifyResumed)
+        {
+            pauseState?.Report(false);
+        }
+    }
+
+    public async ValueTask WaitIfPausedAsync(CancellationToken cancellationToken)
+    {
+        Task? waitTask;
+        var notifyPaused = false;
+        lock (sync)
+        {
+            waitTask = resumeSignal?.Task;
+            if (waitTask is not null && !pauseAcknowledged)
+            {
+                pauseAcknowledged = true;
+                notifyPaused = true;
+            }
+        }
+
+        if (waitTask is null)
+        {
+            return;
+        }
+
+        if (notifyPaused)
+        {
+            pauseState?.Report(true);
+        }
+
+        await waitTask.WaitAsync(cancellationToken);
+    }
+}
 
 internal sealed class GameUpdateService(ILogService log) : IDisposable
 {
@@ -49,8 +165,12 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
     public async Task<GameUpdateResult> TryUpdateAsync(
         GameSettings game,
         IReadOnlyList<UpdateSourceSettings> configuredSources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<GameUpdateProgress>? progress = null,
+        UpdatePauseController? pauseController = null)
     {
+        progress?.Report(new GameUpdateProgress(GameUpdateProgressStage.Checking));
+        await WaitIfPausedAsync(pauseController, cancellationToken);
         var configuredSourceIds = game.Update.SourceIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .ToList();
@@ -70,9 +190,11 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
         var sourcesById = configuredSources.ToDictionary(source => source.Id, StringComparer.OrdinalIgnoreCase);
         var attempts = new List<UpdateSourceAttempt>();
+        var copyStatistics = new UpdateCopyStatistics();
         var attemptedEnabledSource = false;
         var updateDirectoryNotFound = false;
         var sourceFailed = false;
+        var serverUnavailable = false;
         for (var sourceIndex = 0; sourceIndex < configuredSourceIds.Count; sourceIndex++)
         {
             var sourceId = configuredSourceIds[sourceIndex];
@@ -103,7 +225,9 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                     UpdateSourceKind.Http => stagingDirectory = await DownloadHttpSourceAsync(
                         source,
                         game.Id,
-                        cancellationToken),
+                        cancellationToken,
+                        progress,
+                        pauseController),
                     _ => throw new InvalidDataException($"Unsupported update source kind: {source.Kind}.")
                 };
 
@@ -112,7 +236,8 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                     throw new DirectoryNotFoundException($"Update directory does not exist: {sourceDirectory}");
                 }
 
-                if (!Directory.EnumerateFileSystemEntries(sourceDirectory).Any())
+                if (!Directory.EnumerateFileSystemEntries(sourceDirectory)
+                    .Any(path => !IsIgnoredUpdateFile(path)))
                 {
                     throw new InvalidDataException($"Update directory is empty: {sourceDirectory}");
                 }
@@ -129,18 +254,48 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                     return new GameUpdateResult(GameUpdateOutcome.UpToDate, attempts);
                 }
 
-                ApplyUpdate(sourceDirectory, targetDirectory, game.Update.ApplyMode);
+                await ApplyUpdateAsync(
+                    sourceDirectory,
+                    targetDirectory,
+                    game.Update.ApplyMode,
+                    game.Update.VersionFile,
+                    cancellationToken,
+                    progress,
+                    pauseController,
+                    copyStatistics);
                 log.Info($"Game update completed: {game.Id} from {source.Id} using {game.Update.ApplyMode}.");
                 attempts.Add(new UpdateSourceAttempt(
                     source.Id,
                     UpdateSourceOutcome.Completed,
                     $"Applied using {game.Update.ApplyMode} to {targetDirectory}."));
                 AppendNotAttemptedSources(attempts, configuredSourceIds, sourceIndex + 1);
-                return new GameUpdateResult(GameUpdateOutcome.Completed, attempts);
+                return new GameUpdateResult(
+                    GameUpdateOutcome.Completed,
+                    attempts,
+                    copyStatistics.TotalFiles,
+                    copyStatistics.CopiedFiles,
+                    copyStatistics.IsAvailable);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (UpdateServerUnavailableException exception)
+            {
+                serverUnavailable = true;
+                sourceFailed |= source.UnavailableIsFailure;
+                attempts.Add(new UpdateSourceAttempt(
+                    source.Id,
+                    source.UnavailableIsFailure ? UpdateSourceOutcome.ConnectionFailed : UpdateSourceOutcome.ServerUnavailable,
+                    exception.Message));
+                if (source.UnavailableIsFailure)
+                {
+                    log.Error($"HTTP update server connection failed: {game.Id} from {source.Id}.", exception);
+                }
+                else
+                {
+                    log.Info($"HTTP update server unavailable; skipped by configuration: {game.Id} from {source.Id}. {exception.Message}");
+                }
             }
             catch (DirectoryNotFoundException exception)
             {
@@ -150,15 +305,6 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                     UpdateSourceOutcome.DirectoryNotFound,
                     exception.Message));
                 log.Info($"No update directory for game '{game.Id}' in source '{source.Id}': {exception.Message}");
-            }
-            catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
-            {
-                updateDirectoryNotFound = true;
-                attempts.Add(new UpdateSourceAttempt(
-                    source.Id,
-                    UpdateSourceOutcome.DirectoryNotFound,
-                    exception.Message));
-                log.Info($"No HTTP update directory for game '{game.Id}' in source '{source.Id}': {exception.Message}");
             }
             catch (Exception exception)
             {
@@ -179,15 +325,22 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
             ? GameUpdateOutcome.Failed
             : updateDirectoryNotFound
                 ? GameUpdateOutcome.UpdateDirectoryNotFound
-                : attemptedEnabledSource
-                    ? GameUpdateOutcome.Failed
-                    : GameUpdateOutcome.NoSources;
+                : serverUnavailable
+                    ? GameUpdateOutcome.ServerUnavailable
+                    : attemptedEnabledSource
+                        ? GameUpdateOutcome.Failed
+                        : GameUpdateOutcome.NoSources;
         if (outcome == GameUpdateOutcome.Failed)
         {
-            log.Error($"All configured update sources failed for game '{game.Id}'. Game startup will continue.");
+            log.Error($"No update source succeeded and at least one attempt failed for game '{game.Id}'. Game startup will continue.");
         }
 
-        return new GameUpdateResult(outcome, attempts);
+        return new GameUpdateResult(
+            outcome,
+            attempts,
+            copyStatistics.TotalFiles,
+            copyStatistics.CopiedFiles,
+            copyStatistics.IsAvailable);
     }
 
     private static void AppendNotAttemptedSources(
@@ -204,7 +357,9 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
     private async Task<string> DownloadHttpSourceAsync(
         UpdateSourceSettings source,
         string gameId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IProgress<GameUpdateProgress>? progress,
+        UpdatePauseController? pauseController)
     {
         if (!Uri.TryCreate(EnsureTrailingSlash(source.BaseUrl), UriKind.Absolute, out var baseUri)
             || baseUri.Scheme is not ("http" or "https"))
@@ -224,18 +379,37 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
         try
         {
+            progress?.Report(new GameUpdateProgress(GameUpdateProgressStage.Preparing));
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var downloadedFiles = await DownloadDirectoryAsync(
+            var files = new Dictionary<string, Uri>(StringComparer.OrdinalIgnoreCase);
+            await CollectHttpFilesAsync(
                 source,
                 rootUri,
                 rootUri,
                 stagingDirectory,
                 visited,
-                cancellationToken);
-            if (downloadedFiles == 0)
+                files,
+                cancellationToken,
+                pauseController);
+            if (files.Count == 0)
             {
                 throw new InvalidDataException(
                     $"HTTP source returned no files. Enable directory listing at {rootUri.AbsoluteUri}.");
+            }
+
+            progress?.Report(new GameUpdateProgress(GameUpdateProgressStage.Downloading, 0, files.Count));
+            var downloadedFiles = 0;
+            foreach (var file in files)
+            {
+                await WaitIfPausedAsync(pauseController, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                Directory.CreateDirectory(Path.GetDirectoryName(file.Key)!);
+                await DownloadFileAsync(source, file.Value, file.Key, cancellationToken, pauseController);
+                downloadedFiles++;
+                progress?.Report(new GameUpdateProgress(
+                    GameUpdateProgressStage.Downloading,
+                    downloadedFiles,
+                    files.Count));
             }
 
             return stagingDirectory;
@@ -247,20 +421,24 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
         }
     }
 
-    private async Task<int> DownloadDirectoryAsync(
+    private async Task CollectHttpFilesAsync(
         UpdateSourceSettings source,
         Uri rootUri,
         Uri directoryUri,
         string stagingDirectory,
         ISet<string> visited,
-        CancellationToken cancellationToken)
+        Dictionary<string, Uri> files,
+        CancellationToken cancellationToken,
+        UpdatePauseController? pauseController)
     {
+        await WaitIfPausedAsync(pauseController, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!visited.Add(directoryUri.AbsoluteUri))
         {
-            return 0;
+            return;
         }
 
-        var html = await GetStringAsync(source, directoryUri, cancellationToken);
+        var html = await GetStringAsync(source, directoryUri, cancellationToken, directoryUri == rootUri);
         var links = HrefPattern.Matches(html)
             .Select(match => WebUtility.HtmlDecode(match.Groups["href"].Value))
             .Where(href => !string.IsNullOrWhiteSpace(href)
@@ -270,13 +448,13 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var downloaded = 0;
         foreach (var href in links)
         {
+            await WaitIfPausedAsync(pauseController, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (!Uri.TryCreate(directoryUri, href, out var itemUri)
                 || itemUri.Scheme != rootUri.Scheme
-                || !itemUri.Host.Equals(rootUri.Host, StringComparison.OrdinalIgnoreCase)
+                || !itemUri.Authority.Equals(rootUri.Authority, StringComparison.OrdinalIgnoreCase)
                 || !itemUri.AbsolutePath.StartsWith(rootUri.AbsolutePath, StringComparison.Ordinal))
             {
                 continue;
@@ -284,53 +462,92 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
             if (href.EndsWith('/'))
             {
-                downloaded += await DownloadDirectoryAsync(
+                await CollectHttpFilesAsync(
                     source,
                     rootUri,
                     itemUri,
                     stagingDirectory,
                     visited,
-                    cancellationToken);
+                    files,
+                    cancellationToken,
+                    pauseController);
                 continue;
             }
 
             var relativePath = Uri.UnescapeDataString(itemUri.AbsolutePath[rootUri.AbsolutePath.Length..])
                 .Replace('/', Path.DirectorySeparatorChar);
-            var targetPath = GetSafeChildPath(stagingDirectory, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            await DownloadFileAsync(source, itemUri, targetPath, cancellationToken);
-            downloaded++;
-        }
+            if (IsIgnoredUpdateFile(relativePath))
+            {
+                continue;
+            }
 
-        return downloaded;
+            var targetPath = GetSafeChildPath(stagingDirectory, relativePath);
+            files.TryAdd(targetPath, itemUri);
+        }
     }
 
     private async Task<string> GetStringAsync(
         UpdateSourceSettings source,
         Uri uri,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool initialRequest)
     {
-        using var response = await SendAsync(source, uri, HttpCompletionOption.ResponseContentRead, cancellationToken);
-        return await response.Content.ReadAsStringAsync(cancellationToken);
+        try
+        {
+            // Classify availability only before the first response headers arrive. Content read errors
+            // after a response are update failures even when an unavailable server may be skipped.
+            using var response = await SendAsync(source, uri, cancellationToken, initialRequest);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(source.RequestTimeoutMs);
+            return await response.Content.ReadAsStringAsync(timeout.Token);
+        }
+        catch (UpdateServerUnavailableException)
+        {
+            throw;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new IOException($"Failed to read HTTP directory '{uri}': {exception.Message}", exception);
+        }
     }
 
     private async Task DownloadFileAsync(
         UpdateSourceSettings source,
         Uri uri,
         string targetPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        UpdatePauseController? pauseController)
     {
-        using var response = await SendAsync(source, uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var output = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 1_048_576, true);
-        await input.CopyToAsync(output, cancellationToken);
+        try
+        {
+            using var response = await SendAsync(source, uri, cancellationToken);
+            await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var output = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 1_048_576, true);
+            await CopyStreamAsync(input, output, cancellationToken, pauseController);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new IOException($"Failed to download HTTP file '{uri}': {exception.Message}", exception);
+        }
     }
 
     private async Task<HttpResponseMessage> SendAsync(
         UpdateSourceSettings source,
         Uri uri,
-        HttpCompletionOption completionOption,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool initialRequest = false)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
         if (!string.IsNullOrEmpty(source.Username))
@@ -341,10 +558,37 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(source.RequestTimeoutMs);
-        var response = await httpClient.SendAsync(request, completionOption, timeout.Token);
-        response.EnsureSuccessStatusCode();
-        return response;
+        HttpResponseMessage response;
+        try
+        {
+            response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        }
+        catch (Exception exception) when (initialRequest && IsServerUnavailable(exception, cancellationToken))
+        {
+            throw new UpdateServerUnavailableException(
+                $"HTTP update server did not respond at '{uri}': {exception.Message}", exception);
+        }
+
+        try
+        {
+            if (initialRequest && response.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new DirectoryNotFoundException($"HTTP update directory does not exist: {uri}");
+            }
+
+            response.EnsureSuccessStatusCode();
+            return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
+
+    private static bool IsServerUnavailable(Exception exception, CancellationToken cancellationToken) =>
+        !cancellationToken.IsCancellationRequested && (exception is OperationCanceledException
+            || exception is HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError });
 
     private static string ResolveUsbSourceDirectory(UpdateSourceSettings source, string gameId)
     {
@@ -397,11 +641,23 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
                 StringComparison.Ordinal);
     }
 
-    private static void ApplyUpdate(string sourceDirectory, string targetDirectory, UpdateApplyMode mode)
+    private static async Task ApplyUpdateAsync(
+        string sourceDirectory,
+        string targetDirectory,
+        UpdateApplyMode mode,
+        string versionFile,
+        CancellationToken cancellationToken,
+        IProgress<GameUpdateProgress>? progress,
+        UpdatePauseController? pauseController,
+        UpdateCopyStatistics copyStatistics)
     {
+        copyStatistics.Reset();
+        progress?.Report(new GameUpdateProgress(GameUpdateProgressStage.Preparing));
+        await WaitIfPausedAsync(pauseController, cancellationToken);
         ValidateDirectoriesDoNotOverlap(sourceDirectory, targetDirectory);
         if (mode == UpdateApplyMode.FullReplace)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateFullReplaceTarget(targetDirectory);
             if (Directory.Exists(targetDirectory))
             {
@@ -420,21 +676,163 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
         foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", enumeration))
         {
+            await WaitIfPausedAsync(pauseController, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             var relative = Path.GetRelativePath(sourceDirectory, directory);
             Directory.CreateDirectory(GetSafeChildPath(targetDirectory, relative));
         }
 
+        var filesToCopy = new List<(string Source, string Target, bool IsVersionMarker)>();
         foreach (var sourceFile in Directory.EnumerateFiles(sourceDirectory, "*", enumeration))
         {
-            var relative = Path.GetRelativePath(sourceDirectory, sourceFile);
-            var targetFile = GetSafeChildPath(targetDirectory, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+            await WaitIfPausedAsync(pauseController, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsIgnoredUpdateFile(sourceFile))
+            {
+                continue;
+            }
+
+            var relativePath = Path.GetRelativePath(sourceDirectory, sourceFile);
+            var targetFile = GetSafeChildPath(
+                targetDirectory,
+                relativePath);
             if (overwrite || !File.Exists(targetFile))
             {
-                File.Copy(sourceFile, targetFile, overwrite);
+                filesToCopy.Add((
+                    sourceFile,
+                    targetFile,
+                    string.Equals(relativePath, versionFile, StringComparison.OrdinalIgnoreCase)));
+            }
+        }
+
+        // The version file is the commit marker. Copy it only after every payload
+        // file succeeds so an interrupted or failed update is attempted again.
+        filesToCopy.Sort((left, right) => left.IsVersionMarker.CompareTo(right.IsVersionMarker));
+        copyStatistics.SetTotal(filesToCopy.Count);
+        progress?.Report(new GameUpdateProgress(GameUpdateProgressStage.Copying, 0, filesToCopy.Count));
+
+        var copiedFiles = 0;
+        foreach (var file in filesToCopy)
+        {
+            await WaitIfPausedAsync(pauseController, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(Path.GetDirectoryName(file.Target)!);
+            if (file.IsVersionMarker)
+            {
+                await CopyVersionMarkerAsync(
+                    file.Source,
+                    file.Target,
+                    overwrite,
+                    cancellationToken,
+                    pauseController);
+            }
+            else
+            {
+                await CopyFileAsync(
+                    file.Source,
+                    file.Target,
+                    overwrite,
+                    cancellationToken,
+                    pauseController);
+            }
+
+            copiedFiles++;
+            copyStatistics.RecordCopied();
+            progress?.Report(new GameUpdateProgress(
+                GameUpdateProgressStage.Copying,
+                copiedFiles,
+                filesToCopy.Count));
+        }
+    }
+
+    private static async Task CopyVersionMarkerAsync(
+        string sourcePath,
+        string targetPath,
+        bool overwrite,
+        CancellationToken cancellationToken,
+        UpdatePauseController? pauseController)
+    {
+        var temporaryPath = $"{targetPath}.alls-{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await CopyFileAsync(
+                sourcePath,
+                temporaryPath,
+                false,
+                cancellationToken,
+                pauseController);
+            await WaitIfPausedAsync(pauseController, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, targetPath, overwrite);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch
+            {
+                // A leftover temporary marker does not affect version matching.
             }
         }
     }
+
+    private static async Task CopyFileAsync(
+        string sourcePath,
+        string targetPath,
+        bool overwrite,
+        CancellationToken cancellationToken,
+        UpdatePauseController? pauseController)
+    {
+        await using var input = new FileStream(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            1_048_576,
+            true);
+        await using var output = new FileStream(
+            targetPath,
+            overwrite ? FileMode.Create : FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            1_048_576,
+            true);
+        await CopyStreamAsync(input, output, cancellationToken, pauseController);
+    }
+
+    private static async Task CopyStreamAsync(
+        Stream input,
+        Stream output,
+        CancellationToken cancellationToken,
+        UpdatePauseController? pauseController)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(1_048_576);
+        try
+        {
+            while (true)
+            {
+                await WaitIfPausedAsync(pauseController, cancellationToken);
+                var bytesRead = await input.ReadAsync(buffer, cancellationToken);
+                if (bytesRead == 0)
+                {
+                    return;
+                }
+
+                await output.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private static ValueTask WaitIfPausedAsync(
+        UpdatePauseController? pauseController,
+        CancellationToken cancellationToken) =>
+        pauseController?.WaitIfPausedAsync(cancellationToken) ?? ValueTask.CompletedTask;
 
     private static void ValidateFullReplaceTarget(string targetDirectory)
     {
@@ -474,6 +872,9 @@ internal sealed class GameUpdateService(ILogService log) : IDisposable
 
         return fullPath;
     }
+
+    private static bool IsIgnoredUpdateFile(string path) =>
+        Path.GetFileName(path).Equals(".DS_Store", StringComparison.OrdinalIgnoreCase);
 
     private static Uri AppendUriPath(Uri baseUri, string path)
     {

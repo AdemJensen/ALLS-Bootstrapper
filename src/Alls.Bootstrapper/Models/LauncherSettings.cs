@@ -218,6 +218,7 @@ public sealed class UpdateSourceSettings
     public string Path { get; set; } = string.Empty;
     public bool ContainsMultipleGames { get; set; }
     public int RequestTimeoutMs { get; set; } = 300_000;
+    public bool UnavailableIsFailure { get; set; } = true;
 }
 
 public sealed class WindowTargetSettings

@@ -6,8 +6,10 @@
         xmlns:ui="clr-namespace:Alls.Configurator.Infrastructure"
         mc:Ignorable="d"
         Title="ALLS Configurator"
-        Width="1440" Height="900" MinWidth="1120" MinHeight="720"
+        Width="1440" Height="900" MinWidth="640" MinHeight="480"
+        ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
+        SourceInitialized="OnSourceInitialized"
         Background="#F4F6F9"
         FontFamily="Segoe UI, Microsoft YaHei UI"
         PreviewKeyDown="OnPreviewKeyDown"
@@ -36,6 +38,11 @@
             <Setter Property="Margin" Value="0,3" />
             <Setter Property="Padding" Value="7,4" />
             <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+        </Style>
+        <Style TargetType="DataGrid">
+            <Setter Property="CanUserResizeColumns" Value="True" />
+            <Setter Property="MinColumnWidth" Value="75" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Margin" Value="0,7,20,7" />
@@ -198,29 +205,35 @@
 
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="64" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="34" />
             </Grid.RowDefinitions>
 
             <Border Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-                <DockPanel Margin="22,14">
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                        <Button Content="新建" Click="New_Click" />
-                        <Button Content="打开…" Click="Open_Click" />
-                        <Button x:Name="CloseFileButton" Content="关闭文件" Click="CloseFile_Click" />
-                        <Button x:Name="SaveButton" Content="保存" Style="{StaticResource PrimaryButtonStyle}" Click="Save_Click" />
-                        <Button x:Name="SaveAsButton" Content="另存为…" Click="SaveAs_Click" />
-                        <Button x:Name="DiscardChangesButton" Content="放弃所有修改" Click="DiscardChanges_Click" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                        <Button x:Name="ValidateButton" Content="检查配置" Click="Validate_Click" />
-                    </StackPanel>
-                </DockPanel>
+                <WrapPanel Margin="22,10">
+                    <WrapPanel.Resources>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Margin" Value="0,0,8,6" />
+                        </Style>
+                    </WrapPanel.Resources>
+                    <Button Content="新建" Click="New_Click" />
+                    <Button Content="打开…" Click="Open_Click" />
+                    <Button x:Name="CloseFileButton" Content="关闭文件" Click="CloseFile_Click" />
+                    <Button x:Name="SaveButton" Content="保存" Margin="0,0,8,6" Style="{StaticResource PrimaryButtonStyle}" Click="Save_Click" />
+                    <Button x:Name="SaveAsButton" Content="另存为…" Click="SaveAs_Click" />
+                    <Button x:Name="DiscardChangesButton" Content="放弃所有修改" Click="DiscardChanges_Click" />
+                    <Button x:Name="ValidateButton" Content="检查配置" Click="Validate_Click" />
+                </WrapPanel>
             </Border>
 
-            <Grid Grid.Row="1">
-            <TabControl x:Name="EditorTabs" SelectedIndex="0" Background="#F4F6F9" BorderThickness="0"
+            <Grid x:Name="EditorViewport" Grid.Row="1">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          CanContentScroll="False">
+            <!-- Horizontal scrolling measures content with infinite width. Give star columns a finite width
+                 based on the viewport, while MinWidth keeps narrow windows scrollable. -->
+            <TabControl x:Name="EditorTabs" Width="{Binding ActualWidth, ElementName=EditorViewport}" MinWidth="1160"
+                        SelectedIndex="0" Background="#F4F6F9" BorderThickness="0"
                         ItemContainerStyle="{StaticResource EditorTabItemStyle}">
                 <!-- General -->
                 <TabItem>
@@ -397,7 +410,7 @@
                                                     <DataGrid x:Name="GameTimelineGrid" ItemsSource="{Binding Timeline}" AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="150" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                                         <DataGrid.Columns>
                                                             <DataGridTextColumn Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="105"><DataGridTextColumn.Header><ui:HelpLabel Title="STEP" HelpText="启动画面显示的两位阶段编号。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
-                                                            <DataGridTemplateColumn Width="*">
+                                                            <DataGridTemplateColumn Width="*" MinWidth="330">
                                                                 <DataGridTemplateColumn.Header><ui:HelpLabel Title="消息键" HelpText="从内置消息键中选择；下拉选项右侧的问号可查看三种语言的对应文本。" Margin="0"/></DataGridTemplateColumn.Header>
                                                                 <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding MessageKey}" VerticalAlignment="Center" Margin="6,0"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                                                                 <DataGridTemplateColumn.CellEditingTemplate>
@@ -424,15 +437,16 @@
 
                 <!-- Default timeline -->
                 <TabItem>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="28,24,34,28">
                         <TextBlock Text="默认时间线" Style="{StaticResource SectionTitle}"/>
-                        <TextBlock Text="没有专用时间线的游戏会使用这里的 STEP 序列。" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,20"/>
+                        <TextBlock Text="没有专用时间线的游戏会使用这里的 STEP 序列；启用自动更新时会在运行中插入或复用 STEP 12。" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,20"/>
                         <Border Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="18">
                             <StackPanel>
                                 <DataGrid x:Name="DefaultTimelineGrid" ItemsSource="{Binding Timeline}" AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="360" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Binding="{Binding Step, UpdateSourceTrigger=LostFocus}" Width="130"><DataGridTextColumn.Header><ui:HelpLabel Title="STEP" HelpText="启动画面显示的两位阶段编号。" Margin="0"/></DataGridTextColumn.Header></DataGridTextColumn>
-                                        <DataGridTemplateColumn Width="*">
+                                        <DataGridTemplateColumn Width="*" MinWidth="360">
                                             <DataGridTemplateColumn.Header><ui:HelpLabel Title="消息键" HelpText="从内置消息键中选择；下拉选项右侧的问号可查看三种语言的对应文本。" Margin="0"/></DataGridTemplateColumn.Header>
                                             <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding MessageKey}" VerticalAlignment="Center" Margin="6,0"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                                             <DataGridTemplateColumn.CellEditingTemplate>
@@ -450,6 +464,7 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
+                    </ScrollViewer>
                 </TabItem>
 
                 <!-- Input -->
@@ -468,6 +483,7 @@
                                 <WrapPanel Grid.Row="2" Margin="0,8,0,0"><Button Content="上移" Click="MoveDeviceUp_Click"/><Button Content="下移" Click="MoveDeviceDown_Click"/></WrapPanel>
                             </Grid>
                             <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="20">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <Grid DataContext="{Binding SelectedItem, ElementName=DevicesList}">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -479,6 +495,7 @@
                                     <ui:HelpLabel Grid.Row="5" Title="VID" HelpText="USB 厂商标识，使用四位十六进制格式，例如 0x0CA3。"/><TextBox Grid.Row="5" Grid.Column="1" Text="{Binding VendorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="例如 0x0CA3"/>
                                     <ui:HelpLabel Grid.Row="6" Title="PID 列表" HelpText="此配置允许匹配的 USB 产品标识列表，每行填写一个四位十六进制值。"/><StackPanel Grid.Row="6" Grid.Column="1"><TextBox AcceptsReturn="True" MinHeight="90" Text="{Binding ProductIds, Converter={StaticResource DelimitedListConverter}, UpdateSourceTrigger=LostFocus}"/><TextBlock Text="每行一个，例如 0x0021" Style="{StaticResource HintText}"/></StackPanel>
                                 </Grid>
+                                </ScrollViewer>
                             </Border>
                         </Grid>
                     </Grid>
@@ -496,9 +513,10 @@
                                 <WrapPanel Grid.Row="2" Margin="0,8,0,0"><Button Content="上移" Click="MoveSourceUp_Click"/><Button Content="下移" Click="MoveSourceDown_Click"/></WrapPanel>
                             </Grid>
                             <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="20">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <Grid DataContext="{Binding SelectedItem, ElementName=SourcesList}">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="*"/><ColumnDefinition Width="100"/></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                     <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}"><ui:HelpLabel Title="启用此更新源" HelpText="关闭后保留更新源配置，但游戏更新时会跳过它。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                     <ui:HelpLabel Grid.Row="1" Title="唯一 ID" HelpText="更新源的稳定唯一标识，供各游戏的更新源列表引用；修改后原有引用会被标记为无效。"/><TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}"/>
                                     <ui:HelpLabel Grid.Row="2" Title="类型" HelpText="选择通过 HTTP 文件服务器下载更新，或从指定的 U 盘、本地目录读取更新。"/><ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{x:Static ui:EnumOptions.UpdateSourceKinds}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Kind}" SelectionChanged="UpdateSourceKind_SelectionChanged"/>
@@ -509,7 +527,9 @@
                                     <ui:HelpLabel Grid.Row="7" Title="更新目录" HelpText="更新文件在来源内的目录。HTTP 类型填写相对于根地址的 URL 路径；U 盘类型填写相对于盘符根目录的路径。"/><DockPanel Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2"><Button x:Name="BrowseUpdateSourcePathButton" DockPanel.Dock="Right" Margin="8,0,0,0" Content="浏览本地…" ToolTip="仅 U 盘 / 本地目录类型可浏览" Click="BrowseUpdateSourcePath_Click"/><TextBox x:Name="UpdateSourcePathBox" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}"/></DockPanel>
                                     <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding ContainsMultipleGames}"><ui:HelpLabel Title="目录中包含多个游戏" HelpText="启用后会在更新目录下按游戏唯一 ID 继续进入对应子目录。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                     <ui:HelpLabel x:Name="HttpTimeoutLabel" Grid.Row="9" Title="请求超时 (ms)" HelpText="单个 HTTP 请求允许等待的最长时间；超过此时间会尝试下一个更新源。"/><TextBox x:Name="HttpTimeoutEditor" Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding RequestTimeoutMs, UpdateSourceTrigger=LostFocus}"/>
+                                    <CheckBox x:Name="HttpUnavailableIsFailureEditor" Grid.Row="10" Grid.ColumnSpan="3" IsChecked="{Binding UnavailableIsFailure}"><ui:HelpLabel Title="服务器连接不可用时算失败" HelpText="仅 HTTP 来源使用，默认开启。关闭后，首次请求连接失败或未收到响应就超时时显示服务器不可用，并继续尝试下一个来源。服务器返回响应后，目录读取、文件下载、权限和协议错误仍算失败。无法仅凭连接错误确定服务器是否未启动。" Margin="0" Foreground="{StaticResource InkBrush}"/></CheckBox>
                                 </Grid>
+                                </ScrollViewer>
                             </Border>
                         </Grid>
                     </Grid>
@@ -562,14 +582,15 @@
 
                 <!-- Validation -->
                 <TabItem>
-                    <Grid Margin="28,24,34,28">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,24,34,28">
+                    <Grid MinHeight="560" Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="220"/><RowDefinition Height="18"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <DockPanel Margin="0,0,0,16"><StackPanel DockPanel.Dock="Left"><TextBlock Text="校验与 JSON" Style="{StaticResource SectionTitle}"/><TextBlock Text="保存前检查引用和范围；预览内容就是最终写入的 JSON。" Foreground="{StaticResource MutedBrush}"/></StackPanel><Button DockPanel.Dock="Right" Content="刷新检查与预览" Click="RefreshPreview_Click" HorizontalAlignment="Right"/></DockPanel>
                         <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
                             <Grid><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                                 <TextBlock x:Name="ValidationSummary" Text="尚未检查" Margin="14,11" FontWeight="SemiBold"/>
                                 <DataGrid x:Name="ValidationGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                                    <DataGrid.Columns><DataGridTextColumn Header="级别" Binding="{Binding Icon}" Width="75"/><DataGridTextColumn Header="位置" Binding="{Binding Section}" Width="210"/><DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="*"/></DataGrid.Columns>
+                                    <DataGrid.Columns><DataGridTextColumn Header="级别" Binding="{Binding Icon}" Width="75"/><DataGridTextColumn Header="位置" Binding="{Binding Section}" Width="210"/><DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="*" MinWidth="320"/></DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
                         </Border>
@@ -577,8 +598,10 @@
                             <TextBox x:Name="JsonPreview" IsReadOnly="True" AcceptsReturn="True" AcceptsTab="True" FontFamily="Cascadia Mono, Consolas" FontSize="13" Foreground="#DAE2F2" Background="Transparent" BorderThickness="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap"/>
                         </Border>
                     </Grid>
+                    </ScrollViewer>
                 </TabItem>
             </TabControl>
+            </ScrollViewer>
                 <StackPanel x:Name="EmptyDocumentPanel" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560">
                     <Border Width="72" Height="72" CornerRadius="36" Background="White" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" HorizontalAlignment="Center">
                         <TextBlock Text="＋" FontSize="34" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />

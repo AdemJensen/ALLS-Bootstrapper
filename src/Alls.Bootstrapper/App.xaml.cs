@@ -7,6 +7,8 @@ namespace Alls.Bootstrapper;
 
 public partial class App : Application
 {
+    private ILogService? log;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -23,6 +25,10 @@ public partial class App : Application
             localization.Configure(settings.Language);
 
             var logger = new FileLogService(settings.Logging);
+            log = logger;
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
             logger.Info("ALLS bootstrapper starting.");
 
             var launcher = new ProcessLauncher(logger);
@@ -55,5 +61,24 @@ public partial class App : Application
                 MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private void OnDispatcherUnhandledException(
+        object sender,
+        System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        log?.Error("Unhandled UI exception.", e.Exception);
+    }
+
+    private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        log?.Error(
+            $"Unhandled application exception. Terminating: {e.IsTerminating}.",
+            e.ExceptionObject as Exception);
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        log?.Error("Unobserved task exception.", e.Exception);
     }
 }

@@ -101,9 +101,34 @@ internal sealed class BootSequenceService(ProcessLauncher launcher, ILogService 
         LaunchSettings launchSettings,
         Action<BootPhase> showPhase,
         BootSequenceControl control,
+        Func<CancellationToken, Task>? updateGame,
         Action beforeLaunch,
         CancellationToken cancellationToken)
     {
+        var updateIndex = -1;
+        if (updateGame is not null)
+        {
+            var phases = timeline.ToList();
+            updateIndex = phases.FindIndex(phase => phase.Step >= 12 || phase.Action != BootPhaseAction.Continue);
+            if (updateIndex < 0)
+            {
+                updateIndex = phases.Count;
+            }
+
+            // Reuse an authored STEP 12; otherwise insert the runtime-only installation phase.
+            if (updateIndex == phases.Count || phases[updateIndex].Step != 12)
+            {
+                phases.Insert(updateIndex, new BootPhase
+                {
+                    Step = 12,
+                    MessageKey = "STEP_12_MESSAGE",
+                    DurationMs = 0
+                });
+            }
+
+            timeline = phases;
+        }
+
         var launchIndex = FindLaunchIndex(timeline);
         var skippedToLaunch = false;
         for (var index = 0; index < timeline.Count; index++)
@@ -113,12 +138,18 @@ internal sealed class BootSequenceService(ProcessLauncher launcher, ILogService 
             log.Info($"Entering STEP {phase.Step:00} ({phase.MessageKey}).");
             showPhase(phase);
 
+            if (index == updateIndex)
+            {
+                await updateGame!(cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             if (skippedToLaunch && phase.Action == BootPhaseAction.Launch)
             {
                 await Task.Yield();
             }
 
-            var duration = skippedToLaunch && phase.Action == BootPhaseAction.Launch ? 0 : phase.DurationMs;
+            var duration = skippedToLaunch ? 0 : phase.DurationMs;
             var interrupt = await control.WaitAsync(duration, cancellationToken);
             if (interrupt == BootInterrupt.OpenMenu)
             {
@@ -128,7 +159,10 @@ internal sealed class BootSequenceService(ProcessLauncher launcher, ILogService 
             if (interrupt == BootInterrupt.SkipToLaunch && launchIndex >= 0 && index < launchIndex)
             {
                 skippedToLaunch = true;
-                index = launchIndex - 1;
+                // Skipping waits must still apply the pending update before launching the game.
+                index = updateIndex > index && updateIndex <= launchIndex
+                    ? updateIndex - 1
+                    : launchIndex - 1;
                 continue;
             }
 
@@ -160,6 +194,11 @@ internal sealed class BootSequenceService(ProcessLauncher launcher, ILogService 
 
                     return new BootSequenceResult(BootSequenceOutcome.Launched);
                 }
+            }
+
+            if (skippedToLaunch && index < launchIndex)
+            {
+                index = launchIndex - 1;
             }
         }
 

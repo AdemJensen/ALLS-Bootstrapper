@@ -115,6 +115,15 @@ public sealed class AnimatedGifImage : Image
 
     private void OnTimerTick(object? sender, EventArgs e)
     {
+        // DispatcherTimer can already have a tick queued when Stop() is called while
+        // the visual tree is changing. The frame collection may have been reset by
+        // then, so do not index it until the next animation start.
+        if (frames.Count == 0 || frameDurations.Count != frames.Count)
+        {
+            timer.Stop();
+            return;
+        }
+
         frameIndex = (frameIndex + 1) % frames.Count;
         Source = frames[frameIndex];
         timer.Interval = frameDurations[frameIndex];

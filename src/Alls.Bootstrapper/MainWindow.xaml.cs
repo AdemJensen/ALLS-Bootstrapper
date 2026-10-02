@@ -201,7 +201,8 @@ public partial class MainWindow : Window
             BootLogo.Height = 393;
             BootLogo.Margin = new Thickness(0, 35, 0, 0);
             BootStatusStack.Width = 960;
-            BootStatusStack.Margin = new Thickness(0, 500, 0, 0);
+            Canvas.SetLeft(BootStatusStack, (1280 - BootStatusStack.Width) / 2);
+            Canvas.SetTop(BootStatusStack, 500);
             BootPlatformText.FontSize = 43;
             BootStepText.FontSize = 43;
             BootMessageText.FontSize = 43;
@@ -222,7 +223,8 @@ public partial class MainWindow : Window
         BootLogo.Height = 300;
         BootLogo.Margin = new Thickness(0, 68, 0, 0);
         BootStatusStack.Width = 840;
-        BootStatusStack.Margin = new Thickness(0, 374, 0, 0);
+        Canvas.SetLeft(BootStatusStack, (1280 - BootStatusStack.Width) / 2);
+        Canvas.SetTop(BootStatusStack, 374);
         BootPlatformText.FontSize = 34;
         BootStepText.FontSize = 26;
         BootMessageText.FontSize = 25;

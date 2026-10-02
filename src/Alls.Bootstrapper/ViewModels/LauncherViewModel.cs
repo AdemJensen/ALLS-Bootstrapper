@@ -31,6 +31,7 @@ internal enum UpdateStatusTone
 {
     Neutral,
     Notice,
+    InProgress,
     Success,
     Failure
 }
@@ -73,6 +74,14 @@ internal sealed class GameUpdateItemViewModel(
     private string status = status;
     private string details = string.Empty;
     private Brush statusForeground = GetStatusBrush(tone);
+    private string progressText = string.Empty;
+    private double progressPercentage;
+    private bool isProgressVisible;
+    private bool isProgressIndeterminate;
+    private bool hasFileProgress;
+    private bool terminal;
+    private int totalFiles;
+    private int copiedFiles;
 
     public GameSettings Game { get; } = game;
 
@@ -98,17 +107,102 @@ internal sealed class GameUpdateItemViewModel(
         private set => SetProperty(ref statusForeground, value);
     }
 
-    public void Apply(string newStatus, string newDetails, UpdateStatusTone newTone)
+    public string ProgressText
     {
+        get => progressText;
+        private set => SetProperty(ref progressText, value);
+    }
+
+    public double ProgressPercentage
+    {
+        get => progressPercentage;
+        private set => SetProperty(ref progressPercentage, value);
+    }
+
+    public bool IsProgressVisible
+    {
+        get => isProgressVisible;
+        private set => SetProperty(ref isProgressVisible, value);
+    }
+
+    public bool IsProgressIndeterminate
+    {
+        get => isProgressIndeterminate;
+        private set => SetProperty(ref isProgressIndeterminate, value);
+    }
+
+    public bool HasCopyStatistics => hasFileProgress;
+
+    public int TotalFiles => totalFiles;
+
+    public int CopiedFiles => copiedFiles;
+
+    public void ApplyProgress(
+        string newStatus,
+        string newProgressText,
+        int completedFiles,
+        int totalFiles,
+        bool indeterminate,
+        bool isCopying)
+    {
+        if (terminal)
+        {
+            return;
+        }
+
+        Status = newStatus;
+        StatusForeground = GetStatusBrush(UpdateStatusTone.InProgress);
+        ProgressText = newProgressText;
+        IsProgressVisible = true;
+        IsProgressIndeterminate = indeterminate;
+        if (indeterminate)
+        {
+            ProgressPercentage = 0;
+        }
+
+        if (!indeterminate)
+        {
+            if (isCopying)
+            {
+                hasFileProgress = true;
+                this.totalFiles = totalFiles;
+                copiedFiles = completedFiles;
+            }
+
+            ProgressPercentage = totalFiles == 0
+                ? 100
+                : Math.Clamp(completedFiles * 100.0 / totalFiles, 0, 100);
+        }
+    }
+
+    public void Apply(
+        string newStatus,
+        string newDetails,
+        UpdateStatusTone newTone,
+        int resultTotalFiles = 0,
+        int resultCopiedFiles = 0,
+        bool hasCopyStatistics = false)
+    {
+        terminal = true;
         Status = newStatus;
         Details = newDetails;
         StatusForeground = GetStatusBrush(newTone);
+        if (hasCopyStatistics)
+        {
+            hasFileProgress = true;
+            totalFiles = resultTotalFiles;
+            copiedFiles = resultCopiedFiles;
+        }
+
+        IsProgressVisible = false;
+        IsProgressIndeterminate = false;
     }
 
     private static Brush GetStatusBrush(UpdateStatusTone tone) => tone switch
     {
         UpdateStatusTone.Success => Brushes.ForestGreen,
         UpdateStatusTone.Failure => Brushes.Crimson,
+        UpdateStatusTone.InProgress => Brushes.DodgerBlue,
         UpdateStatusTone.Notice => Brushes.DarkGoldenrod,
         _ => Brushes.Gray
     };
@@ -131,6 +225,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private LauncherScreen screen = LauncherScreen.Boot;
     private string stepLabel = "STEP 01";
     private string message = string.Empty;
+    private string bootUpdateProgressText = string.Empty;
     private string errorTitle = string.Empty;
     private string errorMessage = string.Empty;
     private int selectedGameIndex;
@@ -145,7 +240,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     private int selectedUpdateGameIndex;
     private UpdateAllSection updateAllSection = UpdateAllSection.Return;
     private bool updateAllRunning;
+    private UpdatePauseController? updatePauseController;
     private bool isUpdateDetailsVisible;
+    private bool isUpdateCancelConfirmationVisible;
+    private int updateCancelConfirmationSelectedIndex;
     private string updateAllTitle = string.Empty;
     private string updateDetailTitle = string.Empty;
     private string updateDetailMessage = string.Empty;
@@ -202,7 +300,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     public IReadOnlyList<string> ConfirmationChoices { get; }
 
-    public IReadOnlyList<string> UpdateReturnChoices { get; }
+    public IReadOnlyList<string> UpdateReturnChoices { get; private set; }
 
     public IReadOnlyList<GameUpdateItemViewModel> UpdateAllEntries
     {
@@ -272,6 +370,12 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref message, value);
     }
 
+    public string BootUpdateProgressText
+    {
+        get => bootUpdateProgressText;
+        private set => SetProperty(ref bootUpdateProgressText, value);
+    }
+
     public string ErrorTitle
     {
         get => errorTitle;
@@ -302,6 +406,24 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
     public string UpdateAllHelp => localization.Get("UPDATE_ALL_HELP");
 
     public string UpdateGameListTitle => localization.Get("UPDATE_ALL_GAME_LIST_TITLE");
+
+    public IReadOnlyList<string> UpdateCancelConfirmationChoices => ConfirmationChoices;
+
+    public string UpdateCancelConfirmationTitle => localization.Get("UPDATE_ALL_CANCEL_CONFIRM_TITLE");
+
+    public string UpdateCancelConfirmationMessage => localization.Get("UPDATE_ALL_CANCEL_CONFIRM_MESSAGE");
+
+    public bool IsUpdateCancelConfirmationVisible
+    {
+        get => isUpdateCancelConfirmationVisible;
+        private set => SetProperty(ref isUpdateCancelConfirmationVisible, value);
+    }
+
+    public int UpdateCancelConfirmationSelectedIndex
+    {
+        get => updateCancelConfirmationSelectedIndex;
+        private set => SetProperty(ref updateCancelConfirmationSelectedIndex, value);
+    }
 
     public bool IsUpdateDetailsVisible
     {
@@ -406,6 +528,12 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
     private void HandleUpdateAllInput(CabinetInputAction action)
     {
+        if (IsUpdateCancelConfirmationVisible)
+        {
+            HandleUpdateCancelConfirmationInput(action);
+            return;
+        }
+
         if (IsUpdateDetailsVisible)
         {
             if (action is CabinetInputAction.Confirm or CabinetInputAction.Select)
@@ -433,9 +561,49 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Games:
                 ShowUpdateDetails();
                 break;
+            case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Return && updateAllRunning:
+            case CabinetInputAction.Select when updateAllRunning:
+                RequestUpdateCancellation();
+                break;
             case CabinetInputAction.Confirm when updateAllSection == UpdateAllSection.Return && !updateAllRunning:
             case CabinetInputAction.Select when !updateAllRunning:
                 ShowMenu();
+                break;
+        }
+    }
+
+    private void RequestUpdateCancellation()
+    {
+        if (updatePauseController is null)
+        {
+            return;
+        }
+
+        UpdateAllTitle = localization.Get("UPDATE_ALL_PAUSING_TITLE");
+        updatePauseController.RequestPause();
+    }
+
+    private void HandleUpdateCancelConfirmationInput(CabinetInputAction action)
+    {
+        switch (action)
+        {
+            case CabinetInputAction.Up:
+            case CabinetInputAction.Down:
+                UpdateCancelConfirmationSelectedIndex = UpdateCancelConfirmationSelectedIndex == 0 ? 1 : 0;
+                break;
+            case CabinetInputAction.Select:
+            case CabinetInputAction.Confirm when UpdateCancelConfirmationSelectedIndex == 0:
+                IsUpdateCancelConfirmationVisible = false;
+                UpdateAllTitle = localization.Get("UPDATE_ALL_RUNNING_TITLE");
+                updatePauseController?.Resume();
+                break;
+            case CabinetInputAction.Confirm:
+                IsUpdateCancelConfirmationVisible = false;
+                updateAllRunning = false;
+                var pauseController = updatePauseController;
+                updatePauseController = null;
+                ShowMenu();
+                pauseController?.Resume();
                 break;
         }
     }
@@ -476,9 +644,11 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         }
 
         UpdateDetailTitle = $"{entry.Title} ({entry.Id})";
-        UpdateDetailMessage = string.IsNullOrWhiteSpace(entry.Details)
-            ? localization.Get("UPDATE_DETAIL_WAITING")
-            : entry.Details;
+        UpdateDetailMessage = !string.IsNullOrWhiteSpace(entry.Details)
+            ? entry.Details
+            : entry.HasCopyStatistics
+                ? $"{entry.Status}{Environment.NewLine}{Environment.NewLine}{FormatFileCopySummary(entry.TotalFiles, entry.CopiedFiles)}"
+                : localization.Get("UPDATE_DETAIL_WAITING");
         IsUpdateDetailsVisible = true;
     }
 
@@ -722,7 +892,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         selectedUpdateGameIndex = 0;
         updateAllSection = UpdateAllSection.Return;
         updateAllRunning = true;
+        UpdateReturnChoices = [localization.Get("UPDATE_ALL_CANCEL_AND_RETURN")];
+        RaisePropertyChanged(nameof(UpdateReturnChoices));
         IsUpdateDetailsVisible = false;
+        IsUpdateCancelConfirmationVisible = false;
         UpdateAllTitle = localization.Get("UPDATE_ALL_RUNNING_TITLE");
         IsBusy = true;
         bootSequenceActive = false;
@@ -732,6 +905,32 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
         try
         {
+            // Give WPF a render pass before fast, local version checks start posting
+            // status changes. Otherwise an entire update-all run can complete while
+            // the confirmation page is still the last rendered frame.
+            await Task.Delay(50, token);
+            var pauseState = new Progress<bool>(paused =>
+            {
+                try
+                {
+                    if (!IsCurrent(generation) || !updateAllRunning)
+                    {
+                        return;
+                    }
+
+                    if (paused)
+                    {
+                        UpdateCancelConfirmationSelectedIndex = 0;
+                        IsUpdateCancelConfirmationVisible = true;
+                        UpdateAllTitle = localization.Get("UPDATE_ALL_PAUSED_TITLE");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    log.Error("Failed to update the update-all pause UI.", exception);
+                }
+            });
+            updatePauseController = new UpdatePauseController(pauseState);
             log.Info($"Update-all operation started for {UpdateAllEntries.Count} configured game(s).");
             var hadFailures = false;
             foreach (var entry in UpdateAllEntries)
@@ -739,11 +938,37 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    var result = await updater.TryUpdateAsync(entry.Game, settings.UpdateSources, token);
+                    log.Info($"Update-all checking game '{entry.Game.Id}'.");
+                    var progress = new Progress<GameUpdateProgress>(value =>
+                    {
+                        try
+                        {
+                            if (IsCurrent(generation))
+                            {
+                                ApplyUpdateProgress(entry, value);
+                            }
+                        }
+                        catch (Exception exception)
+                        {
+                            log.Error($"Failed to display update progress for game '{entry.Game.Id}'.", exception);
+                        }
+                    });
+                    var result = await Task.Run(
+                        () => updater.TryUpdateAsync(
+                            entry.Game,
+                            settings.UpdateSources,
+                            token,
+                            progress,
+                            updatePauseController),
+                        token);
                     entry.Apply(
                         GetUpdateStatus(result.Outcome),
                         FormatUpdateDetails(result),
-                        GetUpdateStatusTone(result.Outcome));
+                        GetUpdateStatusTone(result.Outcome),
+                        result.TotalFiles,
+                        result.CopiedFiles,
+                        result.HasCopyStatistics);
+                    log.Info($"Update-all result for game '{entry.Game.Id}': {result.Outcome}.");
                     hadFailures |= result.Outcome == GameUpdateOutcome.Failed;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -756,7 +981,7 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                     log.Error($"Unexpected update failure for game '{entry.Game.Id}'.", exception);
                     entry.Apply(
                         localization.Get("UPDATE_STATUS_FAILED"),
-                        $"{localization.Get("UPDATE_DETAIL_OVERALL")} {localization.Get("UPDATE_STATUS_FAILED")}{Environment.NewLine}{Environment.NewLine}{exception}",
+                        FormatUnexpectedUpdateFailure(entry, exception),
                         UpdateStatusTone.Failure);
                 }
             }
@@ -768,6 +993,10 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                     ? "UPDATE_ALL_COMPLETE_WITH_ERRORS_TITLE"
                     : "UPDATE_ALL_COMPLETE_TITLE");
                 updateAllRunning = false;
+                updatePauseController = null;
+                UpdateReturnChoices = [localization.Get("UPDATE_ALL_RETURN")];
+                RaisePropertyChanged(nameof(UpdateReturnChoices));
+                RaiseUpdateAllSelectionChanged();
                 IsBusy = false;
             }
         }
@@ -782,19 +1011,62 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
             {
                 UpdateAllTitle = localization.Get("UPDATE_ALL_COMPLETE_WITH_ERRORS_TITLE");
                 updateAllRunning = false;
+                updatePauseController = null;
+                IsUpdateCancelConfirmationVisible = false;
+                UpdateReturnChoices = [localization.Get("UPDATE_ALL_RETURN")];
+                RaisePropertyChanged(nameof(UpdateReturnChoices));
+                RaiseUpdateAllSelectionChanged();
                 IsBusy = false;
             }
         }
     }
 
-    private string GetUpdateStatus(GameUpdateOutcome outcome) => outcome switch
+    private void ApplyUpdateProgress(GameUpdateItemViewModel entry, GameUpdateProgress progress)
     {
-        GameUpdateOutcome.UpdateDisabled => localization.Get("UPDATE_STATUS_DISABLED"),
-        GameUpdateOutcome.NoSources => localization.Get("UPDATE_STATUS_NO_SOURCE"),
-        GameUpdateOutcome.UpdateDirectoryNotFound => localization.Get("UPDATE_STATUS_DIRECTORY_NOT_FOUND"),
-        GameUpdateOutcome.UpToDate => localization.Get("UPDATE_STATUS_UP_TO_DATE"),
-        GameUpdateOutcome.Completed => localization.Get("UPDATE_STATUS_COMPLETED"),
-        _ => localization.Get("UPDATE_STATUS_FAILED")
+        var status = GetUpdateProgressStatus(progress.Stage);
+        var progressText = progress.Stage switch
+        {
+            GameUpdateProgressStage.Downloading => string.Format(
+                localization.Get("UPDATE_PROGRESS_DOWNLOADED"),
+                progress.CompletedFiles,
+                progress.TotalFiles,
+                (int)progress.Percentage),
+            GameUpdateProgressStage.Copying => string.Format(
+                localization.Get("UPDATE_PROGRESS_FILES"),
+                progress.CompletedFiles,
+                progress.TotalFiles,
+                (int)progress.Percentage),
+            _ => status
+        };
+        entry.ApplyProgress(
+            status,
+            progressText,
+            progress.CompletedFiles,
+            progress.TotalFiles,
+            !progress.HasFileCount,
+            progress.Stage == GameUpdateProgressStage.Copying);
+    }
+
+    private string GetUpdateProgressStatus(GameUpdateProgressStage stage, string? language = null) =>
+        localization.Get(stage switch
+        {
+            GameUpdateProgressStage.Checking => "UPDATE_STATUS_CHECKING",
+            GameUpdateProgressStage.Downloading => "UPDATE_STATUS_DOWNLOADING",
+            GameUpdateProgressStage.Preparing => "UPDATE_STATUS_PREPARING",
+            _ => "UPDATE_STATUS_COPYING"
+        }, language);
+
+    private string GetUpdateStatus(GameUpdateOutcome outcome) => localization.Get(GetUpdateStatusKey(outcome));
+
+    private static string GetUpdateStatusKey(GameUpdateOutcome outcome) => outcome switch
+    {
+        GameUpdateOutcome.UpdateDisabled => "UPDATE_STATUS_DISABLED",
+        GameUpdateOutcome.NoSources => "UPDATE_STATUS_NO_SOURCE",
+        GameUpdateOutcome.UpdateDirectoryNotFound => "UPDATE_STATUS_DIRECTORY_NOT_FOUND",
+        GameUpdateOutcome.ServerUnavailable => "UPDATE_STATUS_SERVER_UNAVAILABLE",
+        GameUpdateOutcome.UpToDate => "UPDATE_STATUS_UP_TO_DATE",
+        GameUpdateOutcome.Completed => "UPDATE_STATUS_COMPLETED",
+        _ => "UPDATE_STATUS_FAILED"
     };
 
     private static UpdateStatusTone GetUpdateStatusTone(GameUpdateOutcome outcome) => outcome switch
@@ -811,6 +1083,13 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         builder.Append(localization.Get("UPDATE_DETAIL_OVERALL"));
         builder.Append(' ');
         builder.AppendLine(GetUpdateStatus(result.Outcome));
+
+        if (result.Outcome is GameUpdateOutcome.Completed or GameUpdateOutcome.Failed)
+        {
+            builder.AppendLine(result.HasCopyStatistics
+                ? FormatFileCopySummary(result.TotalFiles, result.CopiedFiles)
+                : string.Format(localization.Get("UPDATE_DETAIL_FILE_SUMMARY_UNKNOWN"), result.CopiedFiles));
+        }
 
         if (result.Attempts.Count == 0)
         {
@@ -838,12 +1117,36 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         return builder.ToString().TrimEnd();
     }
 
+    private string FormatUnexpectedUpdateFailure(
+        GameUpdateItemViewModel entry,
+        Exception exception)
+    {
+        var builder = new StringBuilder();
+        builder.Append(localization.Get("UPDATE_DETAIL_OVERALL"));
+        builder.Append(' ');
+        builder.AppendLine(localization.Get("UPDATE_STATUS_FAILED"));
+        builder.AppendLine(entry.HasCopyStatistics
+            ? FormatFileCopySummary(entry.TotalFiles, entry.CopiedFiles)
+            : string.Format(localization.Get("UPDATE_DETAIL_FILE_SUMMARY_UNKNOWN"), entry.CopiedFiles));
+        builder.AppendLine();
+        builder.Append(exception);
+        return builder.ToString();
+    }
+
+    private string FormatFileCopySummary(int totalFiles, int copiedFiles) =>
+        string.Format(
+            localization.Get("UPDATE_DETAIL_FILE_SUMMARY"),
+            totalFiles,
+            copiedFiles);
+
     private string GetUpdateSourceStatus(UpdateSourceOutcome outcome) => outcome switch
     {
         UpdateSourceOutcome.NotAttempted => localization.Get("UPDATE_SOURCE_NOT_ATTEMPTED"),
         UpdateSourceOutcome.Missing => localization.Get("UPDATE_SOURCE_MISSING"),
         UpdateSourceOutcome.Disabled => localization.Get("UPDATE_SOURCE_DISABLED"),
         UpdateSourceOutcome.DirectoryNotFound => localization.Get("UPDATE_SOURCE_DIRECTORY_NOT_FOUND"),
+        UpdateSourceOutcome.ServerUnavailable => localization.Get("UPDATE_SOURCE_SERVER_UNAVAILABLE"),
+        UpdateSourceOutcome.ConnectionFailed => localization.Get("UPDATE_SOURCE_CONNECTION_FAILED"),
         UpdateSourceOutcome.UpToDate => localization.Get("UPDATE_SOURCE_UP_TO_DATE"),
         UpdateSourceOutcome.Completed => localization.Get("UPDATE_SOURCE_COMPLETED"),
         _ => localization.Get("UPDATE_SOURCE_FAILED")
@@ -863,17 +1166,6 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
 
         try
         {
-            if (game.Update.Enabled)
-            {
-                StepLabel = "STEP 12";
-                Message = localization.Get("STEP_12_MESSAGE", activeGameLanguage);
-                _ = await updater.TryUpdateAsync(game, settings.UpdateSources, token);
-                if (!IsCurrent(generation))
-                {
-                    return;
-                }
-            }
-
             bootSequenceActive = true;
             var timeline = game.Timeline.Count > 0 ? game.Timeline : settings.Timeline;
             var result = await sequence.RunAsync(
@@ -881,6 +1173,9 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
                 game.Launch,
                 ShowPhase,
                 bootControl,
+                game.Update.Enabled
+                    ? cancellationToken => UpdateBootGameAsync(game, generation, cancellationToken)
+                    : null,
                 input.Suspend,
                 token);
             if (!IsCurrent(generation))
@@ -980,8 +1275,58 @@ internal sealed class LauncherViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task UpdateBootGameAsync(GameSettings game, int generation, CancellationToken cancellationToken)
+    {
+        var updating = true;
+        BootUpdateProgressText = string.Empty;
+        var progress = new Progress<GameUpdateProgress>(value =>
+        {
+            try
+            {
+                if (!updating || !IsCurrent(generation) || cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (!value.HasFileCount)
+                {
+                    BootUpdateProgressText = string.Empty;
+                    return;
+                }
+
+                var status = GetUpdateProgressStatus(value.Stage, activeGameLanguage);
+                BootUpdateProgressText = $" · {status} {(int)value.Percentage}%";
+            }
+            catch (Exception exception)
+            {
+                log.Error($"Failed to display boot update progress for game '{game.Id}'.", exception);
+            }
+        });
+
+        try
+        {
+            var result = await Task.Run(
+                () => updater.TryUpdateAsync(game, settings.UpdateSources, cancellationToken, progress),
+                cancellationToken);
+            if (IsCurrent(generation) && !cancellationToken.IsCancellationRequested)
+            {
+                var status = localization.Get(GetUpdateStatusKey(result.Outcome), activeGameLanguage);
+                var percentage = result.Outcome is GameUpdateOutcome.Completed or GameUpdateOutcome.UpToDate
+                    ? 100
+                    : result.TotalFiles == 0 ? 0 : (int)Math.Clamp(result.CopiedFiles * 100.0 / result.TotalFiles, 0, 100);
+                BootUpdateProgressText = $" · {status} {percentage}%";
+            }
+        }
+        finally
+        {
+            // Queued UI callbacks must not overwrite the next boot phase or another session.
+            updating = false;
+        }
+    }
+
     private void ShowPhase(BootPhase phase)
     {
+        BootUpdateProgressText = string.Empty;
         Screen = LauncherScreen.Boot;
         IsBusy = true;
         StepLabel = $"STEP {phase.Step:00}";

@@ -41,6 +41,15 @@ public partial class MainWindow : Window
         CloseDocumentCore();
     }
 
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        var workArea = SystemParameters.WorkArea;
+        MinWidth = Math.Min(MinWidth, workArea.Width);
+        MinHeight = Math.Min(MinHeight, workArea.Height);
+        Width = Math.Min(Width, workArea.Width);
+        Height = Math.Min(Height, workArea.Height);
+    }
+
     public void OpenFromCommandLine(string path)
     {
         try
@@ -655,7 +664,8 @@ public partial class MainWindow : Window
             HttpBaseUrlLabel, HttpBaseUrlEditor,
             HttpUsernameLabel, HttpUsernameEditor,
             HttpPasswordLabel, HttpPasswordEditor,
-            HttpTimeoutLabel, HttpTimeoutEditor);
+            HttpTimeoutLabel, HttpTimeoutEditor,
+            HttpUnavailableIsFailureEditor);
         SetElementsVisibility(usbVisibility, UsbDriveLabel, UsbDriveEditor, BrowseUpdateSourcePathButton);
     }
     private void AddSource_Click(object sender, RoutedEventArgs e) { var item = new UpdateSourceSettings { Id = UniqueId("update-source", settings.UpdateSources.Select(source => source.Id)), Enabled = true, Kind = UpdateSourceKind.Http }; settings.UpdateSources.Add(item); SourcesList.Items.Refresh(); SourcesList.SelectedItem = item; RefreshGameUpdateSources(); SetDirty(); }

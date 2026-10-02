@@ -137,7 +137,8 @@
       "password": "",
       "path": "sega_game_updates",
       "containsMultipleGames": true,
-      "requestTimeoutMs": 300000
+      "requestTimeoutMs": 300000,
+      "unavailableIsFailure": true
     },
     {
       "id": "usb-main",
